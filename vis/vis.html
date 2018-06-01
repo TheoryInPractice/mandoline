@@ -1,0 +1,171 @@
+<html>
+<head>
+	<meta charset="UTF-8"> 
+	<script src="d3.js"></script>
+	<style>
+		circle.nodes {
+			fill: #00a0d4;
+			stroke-width: 1.5;
+			stroke: white;
+		}
+
+		path.edge {
+			fill: none;
+			stroke-width: 1.5;
+			stroke: #e6e6e6;
+		}
+
+		.labels {
+			fill: #e95fce;
+			text-anchor: middle;
+			transform: translate(0px, 1.5em);
+		}
+
+		.wr1 { fill: #00d4ae; }
+		.wr2 { fill: #e95fce; }
+		.wr3 { fill: #ef8ada; }
+		.wr4 { fill: #f3a4e3; }
+		.wr5 { fill: #f8caef; }
+		.wr6 { fill: #fce4f7; }
+	</style>
+</head>
+<body>
+
+<div id="graph"></div>
+
+<script type="text/javascript">
+(function(d3) {
+	var target = "karate_4.wreach";
+	target = "path_4.wreach";
+
+	var vis = d3.select("#graph").append("svg");
+	// vis.attr("width", 800).attr("height", 600);
+
+	// Helper function to draw nice lines
+	var bezierLine = d3.line()
+	    .x(function(d) { return d[0]; })
+	    .y(function(d) { return d[1]; })
+	    .curve(d3.curveBasis);
+
+	bezierLine([[0,0],[1,1]]);
+
+	// Parse data
+	d3.dsv(";", target, function(d){
+		return Object.keys(d).map(function(key, index) {
+			var raw = d[key].slice(1,-1);
+			if (raw.length == 0)
+				return [];
+		   	return raw.split(',').map(function(s) {
+		   		return parseInt(s.trim());
+		    });
+		});
+	}).then(function(data) {
+		// Draw nodes
+		var ypos = 300;
+		var dx = 30;
+		var rad = 7;
+		var curve_height = 10;
+		console.log(data)
+
+		var depth = data[0].length;
+
+		function xpos(i) {
+			return i*dx;
+		}
+
+		// Compute edges
+		var edges = []
+		data.forEach(function(wr, iu) {
+			wr[0].forEach(function(iv) {
+				edges.push([iu, iv])
+			});
+		});
+		console.log(edges)
+
+		// Draw edges
+		vis.selectAll("path")
+			.data(edges).enter()
+			.append("path")
+			.attr("class", "edge")
+			.attr("d", function(edge){
+				var sx = xpos(edge[0]); 
+				var tx = xpos(edge[1]);
+				var sy = ypos
+				var ty = ypos
+
+				var mleft = tx*.2+sx*.8;
+				var mright = tx*.8+sx*.2;
+				var dist = edge[0]-edge[1]-1;
+				var off = dist*curve_height;
+				if (edge[0] % 2 == 0)
+					off *= -1;
+
+				return bezierLine([[sx,sy],[mleft,ypos+off],[mright,ypos+off],[tx,ty]]).toString();
+			})
+
+		// Draw WRs
+		var wrgroups = []
+		for (var iu = 0; iu < data.length; iu++) {
+			wrgroups[iu] = [];
+			for (var d = 0; d < depth; d++) {
+				var wr = vis.selectAll("wr"+(d+1))
+					.data(data[iu][d]).enter()
+					.append("rect")
+					.attr("class", "wr"+(d+1))
+					.attr("y", ypos-1.5*rad)
+					.attr("x", function(d) {
+						console.log(d);
+						return xpos(d)-1.5*rad;
+					})
+					.attr("width", 3*rad)
+					.attr("height", 3*rad)
+					.attr("rx", 2*rad)
+					.style("opacity", 0);
+				wrgroups[iu] = wrgroups[iu].concat(wr);
+			}
+		}
+
+		// Draw nodes
+		vis.selectAll("circle")
+			.data(data).enter()
+			.append("svg:circle")
+			.attr("class", "nodes")
+			.attr("cx", function(d, i) {  return xpos(i); })
+			.attr("cy", ypos)
+			.attr("r", rad)
+			.style("transform-origin", "50% 50%")
+			.on("mouseover", function(d,i) {
+				console.log(wrgroups[i])
+				wrgroups[i].forEach(function(elem,index){
+					elem.transition().duration(100).style("opacity", 1)
+				});
+				d3.select(this).transition().duration(100).attr("r", 1.5*rad);
+			})
+			.on("mouseout", function(d,i) {
+				console.log(wrgroups[i])
+				wrgroups[i].forEach(function(elem,index){
+					elem.transition().duration(100).style("opacity", 0)
+				});	
+				d3.select(this).transition().duration(100).attr("r", rad);			
+			})
+
+		// Draw labels
+		vis.selectAll("text")
+			.data(data).enter()
+			.append("text")
+			.attr("class", "labels")
+			.attr("dx", function(d, i) {  return xpos(i); })
+			.attr("dy", ypos)
+			.text(function(d,i) { return i });
+
+		// Fit svg to content
+		var bbox = vis.node().getBBox();
+		vis.node().setAttribute("viewBox", (bbox.x-10)+" "+(bbox.y-10)+" "+(bbox.width+20)+" "+(bbox.height+20));
+		vis.node().setAttribute("width", (bbox.width+20)  + "px");
+		vis.node().setAttribute("height",(bbox.height+20) + "px");
+	});
+
+})(window.d3);
+</script>
+</body>
+</html>
