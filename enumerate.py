@@ -40,6 +40,7 @@ H = PatternBuilder(5) \
     .build()    
 
 print(H)
+print(H.__hash__())
 
 LG, mapping = G.to_lgraph()
 LG.compute_wr(len(H)-1)

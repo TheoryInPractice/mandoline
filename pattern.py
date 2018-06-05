@@ -149,6 +149,33 @@ class Pattern(LGraph):
     def __init__(self):
         super().__init__()
 
+    def __hash__(self):
+        # fnv-style 64 bit hash
+        fnv_prime = 1099511628211
+        fnv_offset = 14695981039346656037
+        modulo = 2 << 64 
+
+        graph_hash = fnv_offset
+        for r,wr in enumerate(self.wr):
+            layer_hash = fnv_offset
+            for iu, wreach in enumerate(self.wr[r]):
+                vertex_hash = fnv_offset
+                for iv in wreach:
+                    vertex_hash = vertex_hash ^ iv
+                    vertex_hash = (vertex_hash * fnv_prime) % modulo
+                layer_hash = layer_hash ^ vertex_hash
+                layer_hash = (layer_hash * fnv_prime) % modulo
+            layer_hash = (layer_hash**(r+1)) % modulo
+            graph_hash = graph_hash ^ layer_hash
+            graph_hash = (graph_hash * fnv_prime) % modulo
+        return graph_hash
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        # TODO
+
     def decompose(self):
         """
             Decompose ordered pattern into pieces, e.g.
