@@ -50,8 +50,13 @@ if __name__ == '__main__':
     #         .build()
 
     # Triangle with tail
-    H = PatternBuilder(4) \
-        .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
+    # H = PatternBuilder(4) \
+    #     .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
+    #     .build()
+
+    # Triangle with two tails
+    H = PatternBuilder(5) \
+        .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
         .build()
 
 

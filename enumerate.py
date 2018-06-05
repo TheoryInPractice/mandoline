@@ -26,6 +26,11 @@ H = PatternBuilder(4) \
         .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
         .build()
 
+# Triangle with two tails
+H = PatternBuilder(5) \
+    .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
+    .build()
+
 print(H)
 
 LG = G.to_lgraph()
@@ -40,74 +45,125 @@ print(truth[:5], "\n")
 
 truth = set(truth)
 
+
 print("Decomposing pattern:")
 pieces = list(H.decompose())
-assert len(pieces) == 2 # Only this special case right now
+adhesions = []
 
 for i,piece in enumerate(pieces):
     print(i, piece)
     print("  Leaves:", piece.leaves)
 
-print("\nCounting triangles and leaves separately:")
-print("Triangles:")
-triangle_matches = find_matches(LG, pieces[0], [0])
-print(triangle_matches)
+    adh = list(sorted(set(piece.leaves) & set(pieces[-1].leaves)))
+    adhesions.append(adh)
 
-print("\nLeaves:")
+    print("  Adhesion:", adh)
+
+
+print("\nCounting secondary pieces:")
+secondary_matches = []
+for adh,piece in zip(adhesions[:-1], pieces[:-1]):
+    matches = find_matches(LG, piece, adh)
+    secondary_matches.append(matches)
+    print(piece)
+    print(matches)
+
+print("\nAssembling with primary piece:")
 
 count = 0
 errors = 0
-found = set()
+matches = set()
 for iu, wreach in LG.wreach_iter():
     print("\n")
     print(iu,":")
 
     uIN = set(LG.in_neighbours(iu))
-    for iumatch in LG.match(iu, pieces[1]):
-        # Restrict search to candidates that appear
-        # before iu in the global order
 
-        adhesion = iumatch.restrict_to([0])
-        cands = triangle_matches[adhesion]
-        cands = cands[:cands.bisect_right(iu-1)]
-
+    # Match primary piece
+    for iumatch in LG.match(iu, pieces[-1]):
         print("Attempting to extend", iumatch)
-        print("  adhesion:", adhesion)
-        print("  candidate leaves:", cands)
 
-        for iv in cands:
-            if iv in uIN:
-                continue # Abort: iu, iv are neighbours
-            for ivmatch in LG.match(iv, pieces[0], partial_match=iumatch):
-                count += 1
-                found.add(ivmatch)
-                if ivmatch in truth:
-                    print(ivmatch)
-                else:
-                    errors += 1
-                    print(">>>", ivmatch, "<<<")
+        candidate_roots = []
+        candidate_roots_indexed = []
+        max_count = 1
+        for i,(adh,piece) in enumerate(zip(adhesions[:-1], pieces[:-1])):
+            mapped_adh = iumatch.restrict_to(adh)
+            cands = secondary_matches[i][mapped_adh]
+            
+            # We can restrict ourselves to candidates that lie to
+            # the left of iu 
+            cands = cands[:cands.bisect_right(iu-1)] 
 
-            # for ivleaves in LG.match(iv, pieces[0]):
-            #     ivleaves_set = set(ivleaves)
-            #     if ivleaves[0] != iumatch[0]:
-            #         continue
+            print("  piece {}: ".format(i), piece)
+            print("  adhesion:", mapped_adh)
+            print("  candidate roots:", cands)
 
-            #     overlap = (uIN & ivleaves_set) - iuleaves_set
-            #     if len(overlap) == 0:
-            #         count += 1
-            #         match = tuple(sorted(iuleaves_set | ivleaves_set | set([iu,iv])))
-            #         if match in truth:
-            #             print(match)
-            #         else:
-            #             errors += 1
-            #             print(">>>", match, "<<<")
-                    
+            candidate_roots.append(cands)
+            candidate_roots_indexed.append(list(enumerate(cands)))
+            max_count *= len(cands)
+
+        assert len(candidate_roots) > 0 # Hand single-piece pattern case
+
+        if max_count == 0: 
+            # At least one candidate set was empty
+            continue
+
+        stack = [(0, 0, 0, iumatch)]
+        while len(stack):
+            print("  STCK",stack)
+            start_index, root_lower_bnd, piece_index, match = stack.pop()
+
+            print("  possible candidates:", candidate_roots[piece_index]) 
+            print("  restricted candidates:", candidate_roots[piece_index][start_index:])
+
+            lower_index = bisect.bisect_left(candidate_roots[piece_index], root_lower_bnd)
+            lower_index = max(lower_index, start_index)
+
+            for i,iv in candidate_roots_indexed[piece_index][lower_index:]:
+                if iv in uIN:
+                    continue # Abort: iu, iv are neighbours
+
+                if piece_index == len(pieces)-2:
+                    # Last piece to be matched.  Every match here is
+                    # a match for the whole pattern
+                    for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
+                        count += 1
+                        matches.add(ivmatch)
+                        if ivmatch in truth:
+                            print(ivmatch)
+                        else:
+                            errors += 1
+                            print(">>>", ivmatch, "<<<")                    
+                else: 
+                    found = False
+                    for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
+                        stack.append((i+1,root_lower_bnd,piece_index,match))
+                        stack.append((i+1,iv,piece_index+1,ivmatch))
+                        found = True
+                        break
+
+                    if found:
+                        break
+        print("Done with extending", iumatch, "\n")
+
+        # for iv in cands:
+        #     if iv in uIN:
+        #         continue # Abort: iu, iv are neighbours
+        #     for ivmatch in LG.match(iv, pieces[0], partial_match=iumatch):
+        #         count += 1
+        #         found.add(ivmatch)
+        #         if ivmatch in truth:
+        #             print(ivmatch)
+        #         else:
+        #             errors += 1
+        #             print(">>>", ivmatch, "<<<")
+
 
 print("\n\n")
 print("Total count:", count)
 print("Not in truth:", errors)
 
-missing = list(truth - found)
+missing = list(truth - matches)
 print("Not found:", len(missing))
 print("Examples:")
 print(missing[:min(len(missing), 20)])

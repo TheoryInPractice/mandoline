@@ -281,20 +281,29 @@ class LGraph:
 
         if partial_match:
             base_match = partial_match.extend(iu, piece.root)
+            if base_match == None:
+                return
 
             missing_leaves = [i for i in missing_leaves if not base_match.is_fixed(i)]
 
             debug = True
 
             if debug:
-                print("  base match", base_match)
-                print("  missing leaves", missing_leaves)
+                print("    base match", base_match)
+                print("    missing leaves", missing_leaves)
         else:
             base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
+            if base_match == None:
+                return
+                
+        if len(missing_leaves) == 0:
+            yield base_match
+            return
+
         stack = [(0, leaf_index, base_match)]
 
         if debug:
-            print("   Wreach: ", wreach)
+            print("    Wreach: ", wreach)
 
         while len(stack) > 0:
             if debug:
@@ -302,9 +311,9 @@ class LGraph:
             i, leaf_index, match = stack.pop()
 
             if debug:
-                print("  Current match is", match)
-                print("  Extension candidates for index {}:".format(missing_leaves[leaf_index]), wreach)
-                print("    -- trimmed by index:", wreach[i:])
+                print("    Current match is", match)
+                print("    Extension candidates for index {}:".format(missing_leaves[leaf_index]), wreach)
+                print("      -- trimmed by index:", wreach[i:])
 
             # Narrow down search range using the bounds dictated 
             # by the current match.    
@@ -316,13 +325,13 @@ class LGraph:
             candidates = wreach_indexed[ilower:iupper]
            
             if debug:
-                print("  Trimmed to range {},{}:".format(lower,upper), wreach[ilower:iupper], "(", candidates ,")")
+                print("    Trimmed to range {},{}:".format(lower,upper), wreach[ilower:iupper], "(", candidates ,")")
 
             if leaf_index == len(missing_leaves)-1:
                 # Every match here is a complete match and we return it
                 for j,iv in candidates:
                     if debug:
-                        print("     Trying", iv)
+                        print("      Trying", iv)
                     next_match = match.extend(iv, missing_leaves[leaf_index])
                     if next_match:
                         yield next_match
