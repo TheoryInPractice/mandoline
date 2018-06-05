@@ -2,6 +2,99 @@ from graph import Graph, LGraph
 import math
 import unittest
 
+class PatternMatch:
+    def __init__(self, LG, pattern):
+        self.LG = LG
+        self.pattern = pattern
+        self.vertex_to_index = dict()
+        self.index_to_vertex = tuple([None] * len(pattern))
+
+    def __len__(self):
+        return len(self.index_to_vertex)
+
+    def extend(self, u, i):
+        if self.index_to_vertex[i] != None or u in self.vertex_to_index:
+            return None # Invalid: index or vertex already assigned
+
+        # Test whether extension is valid
+        for v,j in self.vertex_to_index.items():
+            if self.pattern.adjacent(i,j) != self.LG.adjacent(u,v):
+                return None
+
+        # Perform extension
+        res = PatternMatch(self.LG, self.pattern)
+        res.vertex_to_index = dict(self.vertex_to_index)
+        res.vertex_to_index[u] = i
+
+        temp = list(self.index_to_vertex)
+        temp[i] = u
+        res.index_to_vertex = tuple(temp)
+
+        return res
+
+    def restrict_to(self, indices):
+        """
+            Restricts the current pattern to the provided
+            indices, all others are 'forgotten'
+        """
+        res = PatternMatch(self.LG, self.pattern)
+        for i in indices:
+            iu = self.index_to_vertex[i]
+            assert iu != None
+            res.vertex_to_index[iu] = i
+
+        temp = list(self.index_to_vertex)
+        indices_set = set(indices)
+        for i in range(len(temp)):
+            temp[i] = temp[i] if i in indices_set else None
+        res.index_to_vertex = tuple(temp)
+
+        return res
+
+    def contains(self, u):
+        return u in self.vertex_to_index
+
+    def is_fixed(self, i):
+        return self.index_to_vertex[i] != None
+
+    def get_range(self,i):
+        """
+            Returns the possible range of values for the index i,
+            as dictated by the already set indices to the left and
+            right of i. The returned range [a,b] is inclusive on both
+            sides, so values a,b are allowed. If b < a, no possible values
+            exist.
+        """
+        ileft, iright = i, i
+        while ileft >= 0 and self.index_to_vertex[ileft] == None:
+            ileft -= 1
+
+        k = len(self)
+        while iright < k and self.index_to_vertex[iright] == None:
+            iright += 1
+        
+        # TODO: this can be slightly improved, since every slot between
+        # i and ileft (iright) is empty, this narrows the range further.
+        lbound = 0 if ileft < 0 else self.index_to_vertex[ileft]+1
+        rbound = len(self.LG) if iright >= k else self.index_to_vertex[iright]-1
+
+        return (lbound, rbound)
+
+
+    def indices_to_vertices(self, indices):
+        return [self.index_to_vertex[i] for i in sorted(indices)]
+
+    def __hash__(self):
+        return self.index_to_vertex.__hash__()
+
+    def __eq__(self, other):    
+        if isinstance(other, self.__class__):
+            return self.LG == other.LG and self.pattern == other.pattern and self.index_to_vertex == other.index_to_vertex
+        return False
+
+    def __repr__(self):
+        return "PM "+ ",".join(map(lambda x: "_" if x == None else str(x), self.index_to_vertex))
+
 class PatternBuilder:
     def __init__(self, size):
         self.graph = Graph()
@@ -149,28 +242,22 @@ class Pattern(LGraph):
         prev_leaves = []
         for i,iu in enumerate(roots):
             wreach = self.wreach_all(iu)
-            adhesion = []
-            if i > 0:
-                adhesion = set(wreach) & set(prev_leaves)
-                adhesion = sorted(adhesion)
-            pieces.append(Piece(self, iu, roots[:i], wreach, adhesion))
+            pieces.append(Piece(self, iu, roots[:i], wreach))
             prev_leaves = wreach
         return pieces
 
 class Piece:
-    def __init__(self, pattern, root, previous_roots, leaves, adhesion):
+    def __init__(self, pattern, root, previous_roots, leaves):
         super().__init__()
         self.root = root
         assert len(previous_roots) == 0 or previous_roots[-1] != self.root
 
         self.pattern = pattern
         self.leaves = list(leaves)
-        self.adhesion = list(adhesion)
         self.previous_roots = list(previous_roots)
 
         # At this point this is pure paranoia
         self.leaves.sort() 
-        self.adhesion.sort() 
         self.previous_roots.sort()
 
         # Pre-compute interval in which the very previous root
@@ -221,12 +308,9 @@ class Piece:
         active = set(self.leaves)
         root_col = (216/255.0,20/255.0,149/255.0)
         prev_root_col = (100/255.0, 100/255.0, 100/255.0 )
-        adhesion_col = (9/255.0, 167/255.0, 216/255.0)
 
         colors = {}
         colors[self.root] = root_col
-        for iu in self.adhesion:
-            colors[iu] = adhesion_col
 
         for ir in self.previous_roots:
             colors[ir] = prev_root_col
@@ -241,6 +325,20 @@ class TestPatternMethods(unittest.TestCase):
                 .build() 
         self.assertEqual(len(list(H.decompose())), 2)
 
+
+    # def test_match(self):
+    #     G = Graph()
+    #     for i in range(10):
+    #         G.add_edge(i,i+1)
+
+    #     H = PatternBuilder(4) \
+    #          .add_edge(0,1).add_edge(1,2).add_edge(2,3) \
+    #          .build()
+        
+    #     LG = G.to_lgraph()
+    #     LG.compute_wr(len(H)-1)
+
+    #     M = PatternMatch(LG, H)
 
 if __name__ == '__main__':
     unittest.main()

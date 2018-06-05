@@ -4,6 +4,8 @@ import gzip
 from operator import itemgetter
 from itertools import chain, combinations
 
+import bisect
+
 import unittest
 
 def load_graph(filename):
@@ -161,6 +163,10 @@ class LGraph:
             for v in self.wr[0][u]:
                 yield (v,u)
 
+    def wreach_iter(self):
+        for iu in self:
+            yield iu, sorted(self.wreach_all(iu))
+
     def wreach_all(self, iu):
         res = []
         for wr in self.wr:
@@ -223,7 +229,40 @@ class LGraph:
 
         return self
 
-    def match(self, iu, piece):
+    def brute_force_count(self, pattern):
+        """
+            Counts the number of times pattern appears as an ordered
+            subgraph by brute force.
+        """
+        count = sum(1 for _ in self.brute_force_enumerate(pattern))
+        return count
+
+    def brute_force_enumerate(self, _pattern):
+        from pattern import PatternMatch
+        """
+            Enumerate ordered subgraphs that are isomorphic to the
+            given pattern.
+        """
+        for cand in itertools.combinations(self, len(_pattern)):
+            mapping = list(zip(cand, _pattern))
+
+            match = PatternMatch(self, _pattern)
+            for iu, i in zip(cand, _pattern):
+                match = match.extend(iu,i)
+                if not match:
+                    break
+            else:
+                assert match
+                yield match            
+
+            # for (mu,u), (mv,v) in itertools.combinations(mapping, 2):
+            #     if _pattern.adjacent(u,v) != self.adjacent(mu, mv):
+            #         break
+            # else:
+            #     yield cand
+
+    def match(self, iu, piece, partial_match=None):
+        from pattern import PatternMatch
         """
             Returns all ordered sets X \subseteq WR(iu)
             such that X \cup \{iu\} matches (in edges/non-edges
@@ -231,11 +270,78 @@ class LGraph:
         """
         assert self.depth() >= piece.depth()
         wreach = sorted(self.wreach_all(iu))
+        wreach_indexed = list(zip(range(len(wreach)), wreach))
 
-        for cand in itertools.combinations(wreach, len(piece.leaves)):
-            matched = self._compare(cand, iu, piece)
-            if matched:
-                yield cand
+        # Initialize stack with basic match (mapping root of piece to iu),
+        # or extend the provided partial match. In the latter case, we also
+        # need to determine which leaves still have to be fixed (missing_leaves)
+        debug = False
+        leaf_index = 0 
+        missing_leaves = list(piece.leaves)
+
+        if partial_match:
+            base_match = partial_match.extend(iu, piece.root)
+
+            missing_leaves = [i for i in missing_leaves if not base_match.is_fixed(i)]
+
+            debug = True
+
+            if debug:
+                print("  base match", base_match)
+                print("  missing leaves", missing_leaves)
+        else:
+            base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
+        stack = [(0, leaf_index, base_match)]
+
+        if debug:
+            print("   Wreach: ", wreach)
+
+        while len(stack) > 0:
+            if debug:
+                print("   ", stack)
+            i, leaf_index, match = stack.pop()
+
+            if debug:
+                print("  Current match is", match)
+                print("  Extension candidates for index {}:".format(missing_leaves[leaf_index]), wreach)
+                print("    -- trimmed by index:", wreach[i:])
+
+            # Narrow down search range using the bounds dictated 
+            # by the current match.    
+            lower, upper = match.get_range(missing_leaves[leaf_index])
+
+            ilower = bisect.bisect_left(wreach, lower)
+            ilower = max(ilower, i)
+            iupper = bisect.bisect_right(wreach, upper)
+            candidates = wreach_indexed[ilower:iupper]
+           
+            if debug:
+                print("  Trimmed to range {},{}:".format(lower,upper), wreach[ilower:iupper], "(", candidates ,")")
+
+            if leaf_index == len(missing_leaves)-1:
+                # Every match here is a complete match and we return it
+                for j,iv in candidates:
+                    if debug:
+                        print("     Trying", iv)
+                    next_match = match.extend(iv, missing_leaves[leaf_index])
+                    if next_match:
+                        yield next_match
+            else:
+                # A match here means that we put the current match on
+                # the stack and work on the new match instead
+                for j,iv in candidates:
+                    next_match = match.extend(iv, missing_leaves[leaf_index])
+                    if next_match:
+                        # Save were to continue with previous match
+                        stack.append((j+1,leaf_index,match))
+                        # Save current match on stack
+                        stack.append((j+1,leaf_index+1,next_match))
+                        break
+
+        # for cand in itertools.combinations(wreach, len(piece.leaves)):
+        #     matched = self._compare(cand, iu, piece)
+        #     if matched:
+        #         yield cand
 
     def _compare(self, mleaves, mroot, piece):
         """
