@@ -48,7 +48,7 @@ for i,piece in enumerate(pieces):
     print(i, piece)
     print("  Leaves:", piece.leaves)
 
-print("\nCounting triangles and leaves separate:")
+print("\nCounting triangles and leaves separately:")
 print("Triangles:")
 triangle_matches = find_matches(LG, pieces[0], [0])
 print(triangle_matches)
