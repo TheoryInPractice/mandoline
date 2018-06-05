@@ -99,19 +99,17 @@ class PatternBuilder:
     def __init__(self, size):
         self.graph = Graph()
         for i in range(size):
-            self.graph.add_node(i)            
+            self.graph.add_node(i)
+        self.size = size            
 
     def add_edge(self, u, v):
         self.graph.add_edge(u,v)
         return self
 
     def build(self):
-        res = Pattern()
-
-        for u in range(self.graph.get_max_id()+1):
-            res._add_node(u, self.graph.neighbours(u))
-
-        res.compute_wr(len(self.graph))
+        LG,_ = self.graph.to_lgraph(range(self.size))
+        res = Pattern.from_lgraph(LG)
+        res.compute_wr(self.size)
 
         return res
 
@@ -149,6 +147,15 @@ class BoundingBox:
 class Pattern(LGraph):
     def __init__(self):
         super().__init__()
+
+    @staticmethod 
+    def from_lgraph(LG):
+        res = Pattern()
+        for iu in LG:
+            iN = LG.in_neighbours(iu)
+            res._add_node(iu, iN)
+
+        return res
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)
@@ -246,6 +253,7 @@ class Pattern(LGraph):
             prev_leaves = wreach
         return pieces
 
+
 class Piece:
     def __init__(self, pattern, root, previous_roots, leaves):
         super().__init__()
@@ -324,21 +332,6 @@ class TestPatternMethods(unittest.TestCase):
                 .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
                 .build() 
         self.assertEqual(len(list(H.decompose())), 2)
-
-
-    # def test_match(self):
-    #     G = Graph()
-    #     for i in range(10):
-    #         G.add_edge(i,i+1)
-
-    #     H = PatternBuilder(4) \
-    #          .add_edge(0,1).add_edge(1,2).add_edge(2,3) \
-    #          .build()
-        
-    #     LG = G.to_lgraph()
-    #     LG.compute_wr(len(H)-1)
-
-    #     M = PatternMatch(LG, H)
 
 if __name__ == '__main__':
     unittest.main()

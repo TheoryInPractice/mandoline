@@ -50,7 +50,7 @@ H = PatternBuilder(4) \
         .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
         .build()
 
-LG = G.to_lgraph()
+LG,mapping = G.to_lgraph()
 LG.compute_wr(len(H)-1)
 
 pieces = list(H.decompose())

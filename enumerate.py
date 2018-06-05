@@ -20,8 +20,10 @@ def find_matches(LG, piece, adhesion):
             matches[mapped_adhesion].add(iu)
     return matches
 
-# Triangle with tail in karate
 G = load_graph('example-graphs/karate.txt.gz')
+print("Loaded graph with {} vertices".format(len(G)))
+
+# Triangle with tail
 H = PatternBuilder(4) \
         .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
         .build()
@@ -31,20 +33,28 @@ H = PatternBuilder(5) \
     .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
     .build()
 
+# Two triangles with tail
+H = PatternBuilder(5) \
+    .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
+    .add_edge(1,4).add_edge(0,4) \
+    .build()    
+
 print(H)
 
-LG = G.to_lgraph()
+LG, mapping = G.to_lgraph()
 LG.compute_wr(len(H)-1)
 
 cand = [0, 2, 5, 8]
 mapping = list(zip(cand, H))
 
-truth = list(LG.brute_force_enumerate(H))
-print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
-print(truth[:5], "\n")
-
+truth = []
+if len(G) < 100:
+    truth = list(LG.brute_force_enumerate(H))
+    print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
+    print(truth[:5], "\n")
+else:
+    print("Graph to large to brute force")
 truth = set(truth)
-
 
 print("Decomposing pattern:")
 pieces = list(H.decompose())
@@ -161,7 +171,7 @@ for iu, wreach in LG.wreach_iter():
 
 print("\n\n")
 print("Total count:", count)
-print("Not in truth:", errors)
+print("False positives:", errors)
 
 missing = list(truth - matches)
 print("Not found:", len(missing))

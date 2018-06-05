@@ -8,6 +8,34 @@ import bisect
 
 import unittest
 
+class indexmap:
+    def __init__(self, size):
+        self.vertex_to_index = {}
+        self.index_to_vertex = [None] * size
+
+    def __len__(self):
+        return len(self.index_to_vertex)
+
+    def put(self, index, vertex):
+        if index >= len(self) or index < 0:
+            raise IndexError()
+        self.vertex_to_index[vertex] = index
+        self.index_to_vertex[index] = vertex
+
+    def vertex_at(self, index):
+        if index >= len(self) or index < 0 or self.index_to_vertex[index] == None:
+            raise IndexError()
+        return self.index_to_vertex[index]
+
+    def index_of(self, vertex):
+        return self.vertex_to_index[vertex]
+
+    def indices_of(self, vertices):
+        return [self.vertex_to_index[v] if v in self.vertex_to_index else None for v in vertices]
+
+    def __repr__(self):
+        return 'IM['+','.join(self.index_to_vertex)+']'
+
 def load_graph(filename):
     res = Graph()
     with gzip.open(filename, 'r') as filebuf:
@@ -115,7 +143,7 @@ class Graph:
                 res.add_edge(u,v)
         return res
 
-    def to_lgraph(self):
+    def to_lgraph(self, order=None):
         """
             Returns graph with node indices from 0 to n-1 and 
             a mapping dictionary to recover the original ids.
@@ -124,17 +152,22 @@ class Graph:
         """
         lgraph = LGraph()
 
-        order = [(self.degree(u), u) for u in self.nodes] 
-        order.sort(reverse=True)
-        for _,u in order:
-            lgraph._add_node(u, self.neighbours(u))
+        if order == None:
+            order = [(self.degree(u), u) for u in self.nodes] 
+            order.sort(reverse=True)
+            order = [u for _,u in order]
 
-        return lgraph
+        mapping = indexmap(len(order))
+        for iu,u  in enumerate(order):
+            iN = mapping.indices_of(self.neighbours(u))
+            iN = [x for x in iN if x != None] # Remove 'None' values
+            lgraph._add_node(iu, iN)
+            mapping.put(iu, u)
+
+        return lgraph, mapping
 
 class LGraph:
     def __init__(self):
-        self.positions = {}
-        self.labels = {}
         self.wr = [[]]
         self.outN = [] 
 
@@ -173,27 +206,12 @@ class LGraph:
             res.extend(wr[iu])
         return res
 
-    def label(self, iu):
-        return self.labels[iu]
-
-    def position(self, u):
-        return self.positions[u]
-
-    def _add_node(self, u, N):
-        iu = self.positions[u] = len(self) 
-        self.labels[iu] = u
-
-        inN = []
-        for v in N:
-            if v not in self.positions:
-                continue
-            inN.append(self.positions[v])
-
-        inN.sort()
-        self.wr[0].append(inN)
+    def _add_node(self, iu, iN):
+        iN = list(sorted(iN))
+        self.wr[0].append(iN)
         self.outN.append([])
 
-        for iv in inN:
+        for iv in iN:
             self.outN[iv].append(iu)
 
     def forward_bfs(self, iroot, r):
@@ -295,7 +313,7 @@ class LGraph:
             base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
             if base_match == None:
                 return
-                
+
         if len(missing_leaves) == 0:
             yield base_match
             return
@@ -385,20 +403,20 @@ class TestLGraphMethods(unittest.TestCase):
         G.add_edge('b','c')
         G.add_edge('c','d')
 
-        LG = G.to_lgraph()
+        LG, mapping = G.to_lgraph()
         self.assertEqual(len(G), len(LG))
 
-        print(LG.labels)
         print(LG)
+        print(mapping)
 
         for u,v in G.edges():
-            iu, iv = LG.position(u), LG.position(v)
+            iu, iv = mapping.index_of(u), mapping.index_of(v)
             print((u,v), 'mapped to',(iu,iv))
             self.assertTrue(LG.adjacent(iu,iv))
 
 
         for iu,iv in LG.edges():
-            u, v = LG.label(iu), LG.label(iv)
+            u, v = mapping.vertex_at(iu), mapping.vertex_at(iv)
             print((iu,iv), 'mapped to',(u,v))
             self.assertTrue(G.adjacent(u,v))
 
