@@ -145,10 +145,10 @@ class Graph:
 
     def to_lgraph(self, order=None):
         """
-            Returns graph with node indices from 0 to n-1 and 
-            a mapping dictionary to recover the original ids.
-            The nodes are sorted by (degree, label) in descending
-            order.
+            Returns an ordered graph with node indices from 0 to n-1 and 
+            an indexmap to recover the original ids.
+            The nodes are sorted by (degree, label) in descending order
+            in order to keep the wcol number small.
         """
         lgraph = LGraph()
 
@@ -169,21 +169,19 @@ class Graph:
     def to_pattern(self, order):
         from pattern import Pattern
         """
-            Returns graph with node indices from 0 to n-1 and 
-            a mapping dictionary to recover the original ids.
-            The nodes are sorted by (degree, label) in descending
-            order.
+            Returns a `pattern' (and ordered graph with node indices from 0 to n-1)
+            and an indexmap to recover the original ids. 
         """
-        lgraph = Pattern()
+        pat = Pattern()
 
         mapping = indexmap(len(order))
         for iu,u  in enumerate(order):
             iN = mapping.indices_of(self.neighbours(u))
             iN = [x for x in iN if x != None] # Remove 'None' values
-            lgraph._add_node(iu, iN)
+            pat._add_node(iu, iN)
             mapping.put(iu, u)
 
-        return pattern, mapping
+        return pat, mapping
 
 class LGraph:
     def __init__(self):

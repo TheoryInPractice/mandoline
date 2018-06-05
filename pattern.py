@@ -107,8 +107,9 @@ class PatternBuilder:
         return self
 
     def build(self):
-        LG,_ = self.graph.to_lgraph(range(self.size))
-        res = Pattern.from_lgraph(LG)
+        # LG,_ = self.graph.to_lgraph(range(self.size))
+        # res = Pattern.from_lgraph(LG)
+        res,_ = self.graph.to_pattern(range(self.size))
         res.compute_wr(self.size)
 
         return res
@@ -148,14 +149,31 @@ class Pattern(LGraph):
     def __init__(self):
         super().__init__()
 
-    @staticmethod 
-    def from_lgraph(LG):
-        res = Pattern()
-        for iu in LG:
-            iN = LG.in_neighbours(iu)
-            res._add_node(iu, iN)
+    def decompose(self):
+        """
+            Decompose ordered pattern into pieces, e.g.
+            a set of (independent) vertices whose joint
+            WReach-sets cover all of the graph.
+        """
 
-        return res
+        # First compute roots
+        seen = set()
+        roots = []
+
+        for iu in reversed(range(len(self))):
+            if iu in seen:
+                continue # Already covered
+            wreach = self.wreach_all(iu)
+            seen |= set(wreach)
+            roots.insert(0, iu)
+
+        pieces = []
+        prev_leaves = []
+        for i,iu in enumerate(roots):
+            wreach = self.wreach_all(iu)
+            pieces.append(Piece(self, iu, roots[:i], wreach))
+            prev_leaves = wreach
+        return pieces
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)
@@ -227,31 +245,6 @@ class Pattern(LGraph):
     def draw(self, ctx):
         return self.draw_subgraph(ctx, set(self), set())
 
-    def decompose(self):
-        """
-            Decompose ordered pattern into pieces, e.g.
-            a set of (independent) vertices whose joint
-            WReach-sets cover all of the graph.
-        """
-
-        # First compute roots
-        seen = set()
-        roots = []
-
-        for iu in reversed(range(len(self))):
-            if iu in seen:
-                continue # Already covered
-            wreach = self.wreach_all(iu)
-            seen |= set(wreach)
-            roots.insert(0, iu)
-
-        pieces = []
-        prev_leaves = []
-        for i,iu in enumerate(roots):
-            wreach = self.wreach_all(iu)
-            pieces.append(Piece(self, iu, roots[:i], wreach))
-            prev_leaves = wreach
-        return pieces
 
 
 class Piece:
