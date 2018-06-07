@@ -279,7 +279,6 @@ class Pattern(LGraph):
         return self.draw_subgraph(ctx, set(self), set())
 
 
-
 class Piece:
     def __init__(self, pattern, root, previous_roots, leaves):
         super().__init__()
@@ -288,23 +287,54 @@ class Piece:
 
         self.pattern = pattern
         self.leaves = list(leaves)
-        self.previous_roots = list(previous_roots)
 
         # At this point this is pure paranoia
         self.leaves.sort() 
-        self.previous_roots.sort()
 
         # Pre-compute interval in which the very previous root
         # needs to be placed.
         self.interval = None
-        if len(self.previous_roots) > 0:
-            left = right = self.previous_roots[-1]
+        if len(previous_roots) > 0:
+            left = right = previous_roots[-1]
             while left not in self.leaves and left > 0:
                 left -= 1
             while right not in self.leaves and right != self.root:
                 right += 1
             self.interval = (left, right)
 
+        # This objects are (conceptually) immutable, so we can afford
+        # to compute a slightly expensive hash.
+        self.cached_hash = self._compute_hash()
+
+    def __hash__(self):
+        return self.cached_hash
+
+    def _compute_hash(self):
+        # fnv-style 64 bit hash
+        fnv_prime = 1099511628211
+        fnv_offset = 14695981039346656037
+        modulo = 2 << 64 
+
+        h = fnv_offset
+        h = ((h ^ self.root) * fnv_prime ) % modulo
+        for u in self.leaves:
+            h = ((h ^ u) * fnv_prime ) % modulo
+        for u,v in sorted(self.edges()):
+             h = ((h ^ u) * fnv_prime ) % modulo
+             h = ((h ^ v) * fnv_prime ) % modulo
+
+        return h
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if self.root != other.root or self.leaves != other.leaves:
+            return False
+
+        if self.pattern == other.pattern:
+            return True
+
+        return set(self.edges()) == set(other.edges())
 
     def __iter__(self):
         return iter(self.leaves)
@@ -341,13 +371,9 @@ class Piece:
         rootset = set([self.root])
         active = set(self.leaves)
         root_col = (216/255.0,20/255.0,149/255.0)
-        prev_root_col = (100/255.0, 100/255.0, 100/255.0 )
 
         colors = {}
         colors[self.root] = root_col
-
-        for ir in self.previous_roots:
-            colors[ir] = prev_root_col
 
         return self.pattern.draw_subgraph(ctx, active | rootset, colors)
 
