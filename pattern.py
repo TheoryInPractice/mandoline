@@ -158,14 +158,15 @@ class Pattern(LGraph):
         graph_hash = fnv_offset
         for r,wr in enumerate(self.wr):
             layer_hash = fnv_offset
-            for iu, wreach in enumerate(self.wr[r]):
+            for iu, iN in enumerate(self.wr[0]):
                 vertex_hash = fnv_offset
-                for iv in wreach:
+                for iv in iN:
+                    vertex_hash = vertex_hash ^ iu
+                    vertex_hash = (vertex_hash * fnv_prime) % modulo                    
                     vertex_hash = vertex_hash ^ iv
                     vertex_hash = (vertex_hash * fnv_prime) % modulo
                 layer_hash = layer_hash ^ vertex_hash
                 layer_hash = (layer_hash * fnv_prime) % modulo
-            layer_hash = (layer_hash**(r+1)) % modulo
             graph_hash = graph_hash ^ layer_hash
             graph_hash = (graph_hash * fnv_prime) % modulo
         return graph_hash
@@ -174,7 +175,12 @@ class Pattern(LGraph):
         if not isinstance(other, self.__class__):
             return False
 
-        # TODO
+        if len(self.wr) != len(other.wr):
+            return False
+        for layerSelf, layerOther in zip(self.wr, other.wr):
+            if layerSelf != layerOther:
+                return False
+        return True
 
     def decompose(self):
         """
@@ -352,6 +358,27 @@ class TestPatternMethods(unittest.TestCase):
                 .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
                 .build() 
         self.assertEqual(len(list(H.decompose())), 2)
+
+    def test_equality(self):
+        H1 = PatternBuilder(4) \
+                .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
+                .build() 
+        H2 = PatternBuilder(4) \
+                .add_edge(1,3).add_edge(2,0).add_edge(1,0) \
+                .build() 
+        H3 = PatternBuilder(4) \
+                .add_edge(0,1).add_edge(1,2).add_edge(1,3) \
+                .build() 
+
+        self.assertEqual(H1, H1)
+        self.assertEqual(H2, H2)
+        self.assertEqual(H3, H3)
+
+        self.assertEqual(H1.__hash__(), H2.__hash__())
+        self.assertEqual(H1, H2)
+
+        self.assertNotEqual(H1.__hash__(), H3.__hash__())
+        self.assertNotEqual(H1, H3)
 
 if __name__ == '__main__':
     unittest.main()

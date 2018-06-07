@@ -2,7 +2,7 @@ import itertools
 from collections import defaultdict as defaultdict
 import gzip
 from operator import itemgetter
-from itertools import chain, combinations
+from itertools import chain, combinations, permutations
 
 import bisect
 
@@ -166,6 +166,15 @@ class Graph:
 
         return lgraph, mapping
 
+    def enum_patterns(self):
+        found = set()
+        for order in permutations(sorted(self)):
+            pat, indexmap = self.to_pattern(order)
+            if pat in found:
+                continue
+            found.add(pat)
+            yield pat, indexmap
+
     def to_pattern(self, order):
         from pattern import Pattern
         """
@@ -180,7 +189,7 @@ class Graph:
             iN = [x for x in iN if x != None] # Remove 'None' values
             pat._add_node(iu, iN)
             mapping.put(iu, u)
-
+        pat.compute_wr(len(pat))
         return pat, mapping
 
 class LGraph:
@@ -299,8 +308,8 @@ class LGraph:
     def match(self, iu, piece, partial_match=None):
         from pattern import PatternMatch
         """
-            Returns all ordered sets X \subseteq WR(iu)
-            such that X \cup \{iu\} matches (in edges/non-edges
+            Returns all ordered sets X \\subseteq WR(iu)
+            such that X \\cup \\{iu\\} matches (in edges/non-edges
             in the provided order) the provided piece.
         """
         assert self.depth() >= piece.depth()
@@ -390,7 +399,7 @@ class LGraph:
     def _compare(self, mleaves, mroot, piece):
         """
             Tests whether the ordered graph induces by
-            mleaves \cup \{mroot\} matches the given piece.
+            mleaves \\cup \\{mroot\\} matches the given piece.
         """
         mapping = list(zip(mleaves, piece.leaves))
 
@@ -409,7 +418,7 @@ class LGraph:
         return True 
 
     def __repr__(self):
-        return ','.join(map(str,zip(self.wr[0], self.outN)))
+        return ','.join(map(str,self.wr[0]))
 
 
 class TestLGraphMethods(unittest.TestCase):
@@ -436,6 +445,20 @@ class TestLGraphMethods(unittest.TestCase):
             u, v = mapping.vertex_at(iu), mapping.vertex_at(iv)
             print((iu,iv), 'mapped to',(u,v))
             self.assertTrue(G.adjacent(u,v))
+
+    def test_pattern_enum(self):
+        G = Graph()
+        G.add_edge('a', 'b')
+        G.add_edge('b', 'c')
+
+        patterns = [p for p,m in G.enum_patterns()]
+        self.assertEqual(len(patterns), 3)
+
+        num_pieces = [1,1,2]
+
+        for num, pattern in zip(num_pieces, patterns):
+            pieces = pattern.decompose()
+            self.assertEqual(len(pieces), num)
 
 if __name__ == '__main__':
     unittest.main()
