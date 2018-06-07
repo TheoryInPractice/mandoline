@@ -5,8 +5,39 @@ from operator import itemgetter
 from itertools import chain, combinations, permutations
 
 import bisect
+import math
 
 import unittest
+
+class BoundingBox:
+    def __init__(self):
+        self.left = None
+        self.right = None
+        self.top = None
+        self.bottom = None
+
+    @property
+    def width(self):
+        return self.right-self.left
+
+    @property
+    def height(self):
+        return self.bottom-self.top
+
+    def include(self, x, y):
+        self.left = x if self.left == None else min(self.left, x)
+        self.right = x if self.right == None else max(self.right, x)
+        self.top = y if self.top == None else min(self.top, y)
+        self.bottom = y if self.bottom == None else max(self.bottom, y)
+
+    def move(self, dx, dy):
+        self.left += dx
+        self.right += dx
+        self.top += dy
+        self.bottom += dy
+
+    def __repr__(self):
+        return "BBox[{},{},{},{}]".format(self.top, self.right, self.bottom, self.left)
 
 class indexmap:
     def __init__(self, size):
@@ -419,6 +450,77 @@ class LGraph:
 
     def __repr__(self):
         return ','.join(map(str,self.wr[0]))
+
+
+    def draw_subgraph(self, ctx, nodes, colors):
+        node_col = (0,0,0)
+        node_col_inactive = (0.75,0.75,0.75)
+        edge_col = (0,0,0)
+        edge_col_inactive = (0.75,0.75,0.75)
+
+        rad = 5 # Node radius
+        offy = 0
+        offx = 0
+        diffx = 30
+
+        def coords(i):
+            return offx + i*diffx, offy
+
+        # Compute bounding box
+        bbox = BoundingBox()
+        bbox.include(0,0)
+        for iu in self:
+            ux, uy = coords(iu)
+            bbox.include(ux, uy)
+            for iv in self.in_neighbours(iu):
+                vx, vy = coords(iv)
+                if iv % 2:
+                    bbox.include((ux+vx)/2,uy+(ux-vx)/2)
+                else:
+                    bbox.include((ux+vx)/2,uy-(ux-vx)/2)
+
+        offy = -bbox.top
+        offx = -bbox.left
+
+        # Draw edges
+        ctx.set_line_width(1.5)      
+        for iu in self:   
+            ux, uy = coords(iu)
+            for iv in self.in_neighbours(iu):
+                vx, vy = coords(iv)
+
+                if iu not in nodes or iv not in nodes:
+                    ctx.set_source_rgb(*edge_col_inactive)
+                else:
+                    ctx.set_source_rgb(*edge_col)     
+
+                if iv == iu-1:
+                    ctx.move_to(ux, uy)
+                    ctx.line_to(vx, vy)
+                elif iv % 2:
+                    ctx.arc((ux+vx)/2,uy,(ux-vx)/2,0,math.pi)
+                else:
+                    ctx.arc((ux+vx)/2,uy,(ux-vx)/2,math.pi,0)
+                ctx.stroke()
+
+        # Draw nodes
+        for iu in self:
+            ux, uy = coords(iu)
+            ctx.arc(ux, uy, rad, 0, 2*math.pi)
+            if iu in colors:
+                ctx.set_source_rgb(*colors[iu])
+            elif iu not in nodes:
+                ctx.set_source_rgb(*node_col_inactive)
+            else:
+                ctx.set_source_rgb(*node_col)
+            ctx.fill()    
+
+        # Return bounding box
+        bbox.move(offx, offy)
+        return bbox
+
+    def draw(self, ctx):
+        return self.draw_subgraph(ctx, set(self), set())        
 
 
 class TestLGraphMethods(unittest.TestCase):
