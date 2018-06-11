@@ -153,6 +153,8 @@ class Pattern:
             self.wreach[iu] = LG.wreach_all(iu)
             self.in_neighbours[iu] = LG.in_neighbours(iu)
 
+        self.cached_hash = self._compute_hash()
+
     def __len__(self):
         return len(self.wreach)
 
@@ -165,6 +167,9 @@ class Pattern:
                 yield (v,u)
 
     def __hash__(self):
+        return self.cached_hash
+
+    def _compute_hash(self):
         # fnv-style 64 bit hash
         fnv_prime = 1099511628211
         fnv_offset = 14695981039346656037
