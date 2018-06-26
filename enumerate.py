@@ -180,8 +180,6 @@ LG.compute_wr(len(H)-1)
 # TODO: 
 # - pieces can be used as indices so adhesion/frequency should only 
 #   be computed once per piece and used in global data structure
-# - implement single-pattern counting; do _not_ store in adhesion dict as it won't
-#   help later computations
 
 for P,indexmap in H.enum_patterns():
     print("Searching pattern", P)
