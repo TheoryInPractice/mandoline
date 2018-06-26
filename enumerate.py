@@ -105,7 +105,7 @@ def assemble_pieces(LG, pieces, truth):
                 candidate_roots_indexed.append(list(enumerate(cands)))
                 max_count *= len(cands)
 
-            assert len(candidate_roots) > 0 # Hand single-piece pattern case
+            assert len(candidate_roots) > 0 # Single-piece pattern case handled elsewhere 
 
             if max_count == 0: 
                 # At least one candidate set was empty
@@ -142,14 +142,14 @@ def assemble_pieces(LG, pieces, truth):
                                 errors += 1
                                 print(">>>", ivmatch, "<<<")                    
                     else: 
-                        found = False
+                        candidates = []
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
-                            stack.append((i+1,root_lower_bnd,piece_index,match))
-                            stack.append((0,iv,piece_index+1,ivmatch))
-                            found = True
-                            break
+                            candidates.append((0,iv,piece_index+1,ivmatch))
 
-                        if found:
+                        if len(candidates) > 0:
+                            # Need to keep working one the `parent' match
+                            stack.append((i+1,root_lower_bnd,piece_index,match))
+                            stack = stack + candidates 
                             break
             print("Done with extending", iumatch, "\n")
 
