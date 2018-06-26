@@ -43,15 +43,22 @@ def load_graph(filename):
 
     _, ext = os.path.splitext(filename)
 
-    context = gzip.open(filename, 'r') if ext == '.gz' else open(filename, 'r')
-
-    with context as filebuf:
-        for l in filebuf:
-            u, v = l.decode().split()
-            u, v = int(u), int(v)
-            if u == v:
-                continue
-            res.add_edge(u,v)
+    if ext == '.gz':
+        with gzip.open(filename, 'r') as filebuf:
+            for l in filebuf:
+                u, v = l.decode().split()
+                u, v = int(u), int(v)
+                if u == v:
+                    continue
+                res.add_edge(u,v)
+    else:
+        with open(filename, 'r') as filebuf:
+            for l in filebuf:
+                u, v = l.split()
+                u, v = int(u), int(v)
+                if u == v:
+                    continue
+                res.add_edge(u,v)
     res.remove_loops()
     return res
 

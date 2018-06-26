@@ -166,15 +166,17 @@ def assemble_pieces(LG, pieces, truth):
 
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser(description='Process some integers.')
-    
+
     G = load_graph('example-graphs/karate.txt.gz')
     print("Loaded graph with {} vertices".format(len(G)))
 
-    H = Graph()
-    H.add_edge(0,1)
-    H.add_edge(1,2)
-    H.add_edge(2,3)
-    H.add_edge(3,4)
+
+    H = load_graph('example-graphs/P5.txt')
+    # H = Graph()
+    # H.add_edge(0,1)
+    # H.add_edge(1,2)
+    # H.add_edge(2,3)
+    # H.add_edge(3,4)
 
     print(H)
 
