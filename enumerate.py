@@ -3,6 +3,7 @@
 from graph import Graph, load_graph
 from pattern import PatternBuilder, Pattern
 
+import argparse
 import itertools
 import sys
 
@@ -163,38 +164,41 @@ def assemble_pieces(LG, pieces, truth):
     print(missing[:min(len(missing), 20)])
 
 
-G = load_graph('example-graphs/karate.txt.gz')
-print("Loaded graph with {} vertices".format(len(G)))
+if __name__ == "__main__":
+    # parser = argparse.ArgumentParser(description='Process some integers.')
+    
+    G = load_graph('example-graphs/karate.txt.gz')
+    print("Loaded graph with {} vertices".format(len(G)))
 
-H = Graph()
-H.add_edge(0,1)
-H.add_edge(1,2)
-H.add_edge(2,3)
-H.add_edge(3,4)
+    H = Graph()
+    H.add_edge(0,1)
+    H.add_edge(1,2)
+    H.add_edge(2,3)
+    H.add_edge(3,4)
 
-print(H)
+    print(H)
 
-LG, mapping = G.to_lgraph()
-LG.compute_wr(len(H)-1)
+    LG, mapping = G.to_lgraph()
+    LG.compute_wr(len(H)-1)
 
-# TODO: 
-# - pieces can be used as indices so adhesion/frequency should only 
-#   be computed once per piece and used in global data structure
+    # TODO: 
+    # - pieces can be used as indices so adhesion/frequency should only 
+    #   be computed once per piece and used in global data structure
 
-for P,indexmap in H.enum_patterns():
-    print("Searching pattern", P)
-    truth = []
-    if len(G) < 100:
-        truth = list(LG.brute_force_enumerate(P))
-        print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
-        print(truth[:5], "\n")
-    else:
-        print("Graph to large to brute force")
-    truth = set(truth)
+    for P,indexmap in H.enum_patterns():
+        print("Searching pattern", P)
+        truth = []
+        if len(G) < 100 and len(P) < 5:
+            truth = list(LG.brute_force_enumerate(P))
+            print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
+            print(truth[:5], "\n")
+        else:
+            print("Graph to large to brute force")
+        truth = set(truth)
 
-    pieces = list(P.decompose())
+        pieces = list(P.decompose())
 
-    if len(pieces) == 1:
-        count_singleton_piece(LG, pieces[0], truth)
-    else:
-        assemble_pieces(LG, pieces, truth)
+        if len(pieces) == 1:
+            count_singleton_piece(LG, pieces[0], truth)
+        else:
+            assemble_pieces(LG, pieces, truth)

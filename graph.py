@@ -38,8 +38,14 @@ class indexmap:
         return 'IM['+','.join(self.index_to_vertex)+']'
 
 def load_graph(filename):
+    import os.path
     res = Graph()
-    with gzip.open(filename, 'r') as filebuf:
+
+    _, ext = os.path.splitext(filename)
+
+    context = gzip.open(filename, 'r') if ext == '.gz' else open(filename, 'r')
+
+    with context as filebuf:
         for l in filebuf:
             u, v = l.decode().split()
             u, v = int(u), int(v)
