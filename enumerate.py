@@ -165,18 +165,20 @@ def assemble_pieces(LG, pieces, truth):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Enumerates H in G')
 
-    G = load_graph('example-graphs/karate.txt.gz')
-    print("Loaded graph with {} vertices".format(len(G)))
+    parser.add_argument('H', help='Pattern graph H')
+    parser.add_argument('G', help='Host graph G')
+
+    args = parser.parse_args()
+
+    H = load_graph(args.H)
+    print("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
+
+    G = load_graph(args.G)
+    print("Loaded host graph with {} vertices".format(len(G)))
 
 
-    H = load_graph('example-graphs/P5.txt')
-    # H = Graph()
-    # H.add_edge(0,1)
-    # H.add_edge(1,2)
-    # H.add_edge(2,3)
-    # H.add_edge(3,4)
 
     print(H)
 
