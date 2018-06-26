@@ -169,6 +169,7 @@ if __name__ == "__main__":
 
     parser.add_argument('H', help='Pattern graph H')
     parser.add_argument('G', help='Host graph G')
+    parser.add_argument('--validate', action='store_true')
 
     args = parser.parse_args()
 
@@ -189,7 +190,7 @@ if __name__ == "__main__":
     for P,indexmap in H.enum_patterns():
         print("Searching pattern", P)
         truth = []
-        if len(G) < 100 and len(P) < 5:
+        if args.validate:
             truth = list(LG.brute_force_enumerate(P))
             print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
             print(truth[:5], "\n")
