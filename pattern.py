@@ -48,6 +48,12 @@ class PatternMatch:
         if self.index_to_vertex[i] != None or u in self.vertex_to_index:
             return None # Invalid: index or vertex already assigned
 
+        left, right = self.get_range(i)
+        if u < left or u > right:
+            print("Warning: tried extending {} with {} at {}, invalid range.".format(self, u, i))
+            print("   (Range: {}, {}, {})".format(left, u, right))
+            return None
+
         # Test whether extension is valid
         for v,j in self.vertex_to_index.items():
             if self.pattern.adjacent(i,j) != self.LG.adjacent(u,v):
@@ -240,6 +246,8 @@ class Pattern:
             prev_leaves = wreach
         return pieces
 
+    def __repr__(self):
+        return 'PT'+','.join(map(str,self.in_neighbours))
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)

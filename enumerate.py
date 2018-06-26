@@ -20,32 +20,38 @@ def find_matches(LG, piece, adhesion):
             matches[mapped_adhesion].add(iu)
     return matches
 
-G = load_graph('example-graphs/karate.txt.gz')
-print("Loaded graph with {} vertices".format(len(G)))
+def count_singleton_piece(LG, piece, truth):
+    print("\nCounting singleton piece")
 
-H = Graph()
-H.add_edge(0,1)
-H.add_edge(1,2)
-H.add_edge(2,3)
-H.add_edge(3,4)
+    count = 0
+    errors = 0
+    matches = set()
+    for iu, wreach in LG.wreach_iter():
+        print("\n")
+        print(iu,":")
 
-print(H)
+        uIN = set(LG.in_neighbours(iu))
 
-LG, mapping = G.to_lgraph()
-LG.compute_wr(len(H)-1)
+        # Match primary piece
+        for iumatch in LG.match(iu, piece):
+            count += 1
+            matches.add(iumatch)
+            if iumatch in truth:
+                print(iumatch)
+            else:
+                errors += 1
+                print(">>>", iumatch, "<<<")         
 
-for P,indexmap in H.enum_patterns():
-    truth = []
-    if len(G) < 100:
-        truth = list(LG.brute_force_enumerate(P))
-        print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
-        print(truth[:5], "\n")
-    else:
-        print("Graph to large to brute force")
-    truth = set(truth)
+    print("\n\n")
+    print("Total count:", count)
+    print("False positives:", errors)
 
-    print("Decomposing pattern:")
-    pieces = list(P.decompose())
+    missing = list(truth - matches)
+    print("Not found:", len(missing))
+    print("Examples:")
+    print(missing[:min(len(missing), 20)])                
+
+def assemble_pieces(LG, pieces, truth):
     adhesions = []
 
     for i,piece in enumerate(pieces):
@@ -56,7 +62,6 @@ for P,indexmap in H.enum_patterns():
         adhesions.append(adh)
 
         print("  Adhesion:", adh)
-
 
     print("\nCounting secondary pieces:")
     secondary_matches = []
@@ -111,11 +116,15 @@ for P,indexmap in H.enum_patterns():
                 print("  STCK",stack)
                 start_index, root_lower_bnd, piece_index, match = stack.pop()
 
+                # TODO: BUG!
+                # The 'start_index' really doesn't work here since we are looking at
+                # different arrays!!!
                 print("  possible candidates:", candidate_roots[piece_index]) 
-                print("  restricted candidates:", candidate_roots[piece_index][start_index:])
 
                 lower_index = bisect.bisect_left(candidate_roots[piece_index], root_lower_bnd)
                 lower_index = max(lower_index, start_index)
+
+                print("  restricted candidates:", candidate_roots[piece_index][lower_index:])
 
                 for i,iv in candidate_roots_indexed[piece_index][lower_index:]:
                     if iv in uIN:
@@ -136,7 +145,7 @@ for P,indexmap in H.enum_patterns():
                         found = False
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
                             stack.append((i+1,root_lower_bnd,piece_index,match))
-                            stack.append((i+1,iv,piece_index+1,ivmatch))
+                            stack.append((0,iv,piece_index+1,ivmatch))
                             found = True
                             break
 
@@ -153,3 +162,41 @@ for P,indexmap in H.enum_patterns():
     print("Examples:")
     print(missing[:min(len(missing), 20)])
 
+
+G = load_graph('example-graphs/karate.txt.gz')
+print("Loaded graph with {} vertices".format(len(G)))
+
+H = Graph()
+H.add_edge(0,1)
+H.add_edge(1,2)
+H.add_edge(2,3)
+H.add_edge(3,4)
+
+print(H)
+
+LG, mapping = G.to_lgraph()
+LG.compute_wr(len(H)-1)
+
+# TODO: 
+# - pieces can be used as indices so adhesion/frequency should only 
+#   be computed once per piece and used in global data structure
+# - implement single-pattern counting; do _not_ store in adhesion dict as it won't
+#   help later computations
+
+for P,indexmap in H.enum_patterns():
+    print("Searching pattern", P)
+    truth = []
+    if len(G) < 100:
+        truth = list(LG.brute_force_enumerate(P))
+        print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
+        print(truth[:5], "\n")
+    else:
+        print("Graph to large to brute force")
+    truth = set(truth)
+
+    pieces = list(P.decompose())
+
+    if len(pieces) == 1:
+        count_singleton_piece(LG, pieces[0], truth)
+    else:
+        assemble_pieces(LG, pieces, truth)
