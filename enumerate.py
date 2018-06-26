@@ -174,13 +174,10 @@ if __name__ == "__main__":
 
     H = load_graph(args.H)
     print("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
+    print(H)
 
     G = load_graph(args.G)
     print("Loaded host graph with {} vertices".format(len(G)))
-
-
-
-    print(H)
 
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
