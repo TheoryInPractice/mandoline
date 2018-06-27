@@ -359,52 +359,45 @@ class LGraph:
             yield base_match
             return
 
-        stack = [(0, 0, base_match)]
+        # stack = [(0, 0, base_match)]
+        for match in self._match_rec(0, 0, base_match, wreach, wreach_indexed, missing_leaves, debug):
+            yield match
 
+    def _match_rec(self, i, leaf_index, match, wreach, wreach_indexed, missing_leaves, debug):
         if debug:
             print("    Wreach: ", wreach)
+            print("    Current match is", match)
+            print("    Extension candidates for index {}:".format(missing_leaves[leaf_index]), wreach)
+            print("      -- trimmed by index:", wreach[i:])
 
-        while len(stack) > 0:
-            if debug:
-                print("   ", stack)
-            i, leaf_index, match = stack.pop()
+        # Narrow down search range using the bounds dictated 
+        # by the current match.    
+        lower, upper = match.get_range(missing_leaves[leaf_index])
 
-            if debug:
-                print("    Current match is", match)
-                print("    Extension candidates for index {}:".format(missing_leaves[leaf_index]), wreach)
-                print("      -- trimmed by index:", wreach[i:])
+        ilower = bisect.bisect_left(wreach, lower)
+        ilower = max(ilower, i)
+        iupper = bisect.bisect_right(wreach, upper)
+        candidates = wreach_indexed[ilower:iupper]
+       
+        if debug:
+            print("    Trimmed to range {},{}:".format(lower,upper), wreach[ilower:iupper], "(", candidates ,")")
 
-            # Narrow down search range using the bounds dictated 
-            # by the current match.    
-            lower, upper = match.get_range(missing_leaves[leaf_index])
-
-            ilower = bisect.bisect_left(wreach, lower)
-            ilower = max(ilower, i)
-            iupper = bisect.bisect_right(wreach, upper)
-            candidates = wreach_indexed[ilower:iupper]
-           
-            if debug:
-                print("    Trimmed to range {},{}:".format(lower,upper), wreach[ilower:iupper], "(", candidates ,")")
-
-            if leaf_index == len(missing_leaves)-1:
-                # Every match here is a complete match and we return it
-                for j,iv in candidates:
-                    if debug:
-                        print("      Trying", iv)
-                    next_match = match.extend(iv, missing_leaves[leaf_index])
-                    if next_match:
-                        yield next_match
-            else:
-                # A match here means that we put the current match on
-                # the stack and work on the new match instead
-                for j,iv in candidates:
-                    next_match = match.extend(iv, missing_leaves[leaf_index])
-                    if next_match:
-                        # Save were to continue with previous match
-                        stack.append((j+1,leaf_index,match))
-                        # Save current match on stack
-                        stack.append((j+1,leaf_index+1,next_match))
-                        break
+        if leaf_index == len(missing_leaves)-1:
+            # Every match here is a complete match and we return it
+            for j,iv in candidates:
+                if debug:
+                    print("      Trying", iv)
+                next_match = match.extend(iv, missing_leaves[leaf_index])
+                if next_match:
+                    yield next_match
+        else:
+            # A match here means that we put the current match on
+            # the stack and work on the new match instead
+            for j,iv in candidates:
+                next_match = match.extend(iv, missing_leaves[leaf_index])
+                if next_match:
+                    for m in self._match_rec(j+1, leaf_index+1, next_match, wreach, wreach_indexed, missing_leaves, debug):
+                        yield m
 
     def _compare(self, mleaves, mroot, piece):
         """
