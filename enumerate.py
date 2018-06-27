@@ -37,20 +37,28 @@ def count_singleton_piece(LG, piece, truth):
         for iumatch in LG.match(iu, piece):
             count += 1
             matches.add(iumatch)
-            if iumatch in truth:
-                print(iumatch)
+            if truth != None:
+                if iumatch in truth:
+                    print(iumatch)
+                else:
+                    errors += 1
+                    print(">>>", iumatch, "<<<")    
             else:
-                errors += 1
-                print(">>>", iumatch, "<<<")         
+                print(iumatch)     
 
     print("\n\n")
     print("Total count:", count)
-    print("False positives:", errors)
 
-    missing = list(truth - matches)
-    print("Not found:", len(missing))
-    print("Examples:")
-    print(missing[:min(len(missing), 20)])                
+    if truth:
+        print("False positives:", errors)
+
+        missing = list(truth - matches)
+        print("Not found:", len(missing))
+        print("Examples:")
+        print(missing[:min(len(missing), 20)])      
+
+        assert(len(missing) == 0)
+        assert(errors == 0)          
 
 def assemble_pieces(LG, pieces, truth):
     adhesions = []
@@ -134,11 +142,14 @@ def assemble_pieces(LG, pieces, truth):
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
                             count += 1
                             matches.add(ivmatch)
-                            if ivmatch in truth:
-                                print(ivmatch)
+                            if truth != None:
+                                if ivmatch in truth:
+                                    print(ivmatch)
+                                else:
+                                    errors += 1
+                                    print(">>>", ivmatch, "<<<")       
                             else:
-                                errors += 1
-                                print(">>>", ivmatch, "<<<")                    
+                                print(ivmatch)             
                     else: 
                         candidates = []
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
@@ -153,12 +164,17 @@ def assemble_pieces(LG, pieces, truth):
 
     print("\n\n")
     print("Total count:", count)
-    print("False positives:", errors)
 
-    missing = list(truth - matches)
-    print("Not found:", len(missing))
-    print("Examples:")
-    print(missing[:min(len(missing), 20)])
+    if truth != None:
+        print("False positives:", errors)
+
+        missing = list(truth - matches)
+        print("Not found:", len(missing))
+        print("Examples:")
+        print(missing[:min(len(missing), 20)])
+
+        assert(len(missing) == 0)
+        assert(errors == 0)
 
 
 if __name__ == "__main__":
@@ -186,14 +202,14 @@ if __name__ == "__main__":
 
     for P,indexmap in H.enum_patterns():
         print("Searching pattern", P)
-        truth = []
+        truth = None
         if args.validate:
             truth = list(LG.brute_force_enumerate(P))
             print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
             print(truth[:5], "\n")
+            truth = set(truth)
         else:
             print("Graph to large to brute force")
-        truth = set(truth)
 
         pieces = list(P.decompose())
 
