@@ -336,7 +336,6 @@ class LGraph:
         # or extend the provided partial match. In the latter case, we also
         # need to determine which leaves still have to be fixed (missing_leaves)
         debug = False
-        leaf_index = 0 
         missing_leaves = list(piece.leaves)
 
         if partial_match:
@@ -360,7 +359,7 @@ class LGraph:
             yield base_match
             return
 
-        stack = [(0, leaf_index, base_match)]
+        stack = [(0, 0, base_match)]
 
         if debug:
             print("    Wreach: ", wreach)
