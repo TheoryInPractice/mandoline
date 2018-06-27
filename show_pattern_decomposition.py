@@ -55,13 +55,13 @@ if __name__ == '__main__':
     #     .build()
 
     # Triangle with two tails
-    H = PatternBuilder(5) \
-        .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
-        .build()
+    # H = PatternBuilder(5) \
+    #     .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
+    #     .build()
 
 
     if not H: # Random graph
-        n = 5
+        n = 6
         builder = PatternBuilder(n) 
         for _ in range(2*n):
             u = random.randint(0, n)

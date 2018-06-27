@@ -3,6 +3,8 @@ import math
 import unittest
 import bisect
 
+from sortedcontainers import SortedSet
+
 class BoundingBox:
     """
         Helper class for drawing only.
@@ -182,6 +184,31 @@ class Pattern:
     def __hash__(self):
         return self.cached_hash
 
+    def monotone_bfs(self, iu):
+        seen = set([iu])
+        layers = [SortedSet([iu])]
+        while True:
+            next_layer = SortedSet()
+            for iv in layers[-1]:
+                next_layer.update(set(self.in_neighbours[iv]) - seen)
+            if len(next_layer) == 0:
+                break
+            seen.update(next_layer)
+            layers.append(next_layer)
+        return layers
+
+    def monotone_reachable(self, iu):
+        res = set()
+        frontier = [iu]
+        while len(frontier) > 0:
+            iv = frontier.pop()
+            if iv in res:
+                continue
+
+            res.add(iv)
+            frontier += self.in_neighbours[iv]
+        return res
+
     def _compute_hash(self):
         # fnv-style 64 bit hash
         fnv_prime = 1099511628211
@@ -338,6 +365,24 @@ class Piece:
         # At this point this is pure paranoia
         self.leaves.sort() 
 
+        # Compute 'covering' set of vertices from which _all_
+        # leaves can be reached monotonically. The idea is that
+        # these vertices are the only ones that we have to find 
+        # in WReach, all other vertices can then be found via
+        # bfs through back_neighbour sets (which are much smaller)
+        nroots = []
+        remainder = SortedSet(leaves)
+        remainder.add(root)
+
+        while len(remainder) > 0:
+            nr = remainder[-1]
+            del remainder[-1]
+            nroots.append(nr)
+
+            covered = pattern.monotone_reachable(nr)
+            remainder -= covered
+        self.nroots = nroots
+
         # Pre-compute interval in which the very previous root
         # needs to be placed.
         self.interval = None
@@ -418,8 +463,11 @@ class Piece:
         rootset = set([self.root])
         active = set(self.leaves)
         root_col = (216/255.0,20/255.0,149/255.0)
+        nroot_col = (77/255.0, 166/255.0, 255/255.0)
 
         colors = {}
+        for ir in self.nroots:
+            colors[ir] = nroot_col
         colors[self.root] = root_col
 
         return self.pattern.draw_subgraph(ctx, active | rootset, colors)
