@@ -117,9 +117,6 @@ def assemble_pieces(LG, pieces, truth):
                 print("  STCK",stack)
                 start_index, root_lower_bnd, piece_index, match = stack.pop()
 
-                # TODO: BUG!
-                # The 'start_index' really doesn't work here since we are looking at
-                # different arrays!!!
                 print("  possible candidates:", candidate_roots[piece_index]) 
 
                 lower_index = bisect.bisect_left(candidate_roots[piece_index], root_lower_bnd)
