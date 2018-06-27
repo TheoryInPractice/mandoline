@@ -325,8 +325,8 @@ class LGraph:
         from pattern import PatternMatch
         """
             Returns all ordered sets X \\subseteq WR(iu)
-            such that X \\cup \\{iu\\} matches (in edges/non-edges
-            in the provided order) the provided piece.
+            such that ordered graph induced by X \\cup \\{iu\\} 
+            matches the provided piece.
         """
         assert self.depth() >= piece.depth()
         wreach = sorted(self.wreach_all(iu))
@@ -391,8 +391,7 @@ class LGraph:
                 if next_match:
                     yield next_match
         else:
-            # A match here means that we put the current match on
-            # the stack and work on the new match instead
+            # Recurse on partial matches
             for j,iv in candidates:
                 next_match = match.extend(iv, missing_leaves[leaf_index])
                 if next_match:

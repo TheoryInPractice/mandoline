@@ -59,6 +59,10 @@ if __name__ == '__main__':
     #     .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3).add_edge(1,4) \
     #     .build()
 
+    H = PatternBuilder(5) \
+        .add_edge(0,1).add_edge(0,3).add_edge(2,3).add_edge(2, 4) \
+        .build()
+
 
     if not H: # Random graph
         n = 6
