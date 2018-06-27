@@ -407,11 +407,6 @@ class LGraph:
                         stack.append((j+1,leaf_index+1,next_match))
                         break
 
-        # for cand in itertools.combinations(wreach, len(piece.leaves)):
-        #     matched = self._compare(cand, iu, piece)
-        #     if matched:
-        #         yield cand
-
     def _compare(self, mleaves, mroot, piece):
         """
             Tests whether the ordered graph induces by

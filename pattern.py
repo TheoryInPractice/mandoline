@@ -4,6 +4,9 @@ import unittest
 import bisect
 
 class BoundingBox:
+    """
+        Helper class for drawing only.
+    """
     def __init__(self):
         self.left = None
         self.right = None
@@ -43,6 +46,10 @@ class PatternMatch:
 
     def __len__(self):
         return len(self.index_to_vertex)
+
+    def matched_vertices(self):
+        indices = range(len(self.index_to_vertex))
+        return [(i,self.index_to_vertex[i]) for i in indices if self.index_to_vertex[i] != None ]
 
     def extend(self, u, i):
         if self.index_to_vertex[i] != None or u in self.vertex_to_index:
