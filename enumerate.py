@@ -15,7 +15,7 @@ import cairo
 
 def find_matches(LG, piece, adhesion):
     matches = defaultdict(SortedSet)
-    for iu, wreach in LG.wreach_iter():
+    for iu in LG:
         for match in LG.match(iu, piece):
             mapped_adhesion = match.restrict_to(adhesion)
             matches[mapped_adhesion].add(iu)
@@ -27,7 +27,7 @@ def count_singleton_piece(LG, piece, truth):
     count = 0
     errors = 0
     matches = set()
-    for iu, wreach in LG.wreach_iter():
+    for iu in LG:
         print("\n")
         print(iu,":")
 
