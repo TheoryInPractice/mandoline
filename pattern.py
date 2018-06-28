@@ -53,6 +53,22 @@ class PatternMatch:
         indices = range(len(self.index_to_vertex))
         return [(i,self.index_to_vertex[i]) for i in indices if self.index_to_vertex[i] != None ]
 
+    def rightmost_unmatched(self):
+        for i,iv in reverse(enumerate(self.index_to_vertex)):
+            if iv == None:
+                return i
+        return None
+
+    def find_anchors(self, i):
+        """
+            For a given index i, returns vertices of _matched_ indices to
+            the right of i that are neighbours in the underlying pattern.
+        """
+        res = [self.index_to_vertex[j] for j in self.pattern.out_neighbours[i]]
+        res = [iv for iv in res if iv != None ]
+        return res
+
+
     def extend(self, u, i):
         if self.index_to_vertex[i] != None or u in self.vertex_to_index:
             return None # Invalid: index or vertex already assigned
@@ -164,9 +180,12 @@ class Pattern:
     def __init__(self, LG):
         self.wreach = [None] * len(LG)
         self.in_neighbours = [None] * len(LG)
+        self.out_neighbours = [SortedSet() for _ in range(len(LG))]
         for iu in LG:
             self.wreach[iu] = LG.wreach_all(iu)
             self.in_neighbours[iu] = LG.in_neighbours(iu)
+            for iv in self.in_neighbours[iu]:
+                self.out_neighbours[iv].add(iu)
 
         self.cached_hash = self._compute_hash()
 
@@ -381,7 +400,7 @@ class Piece:
 
             covered = pattern.monotone_reachable(nr)
             remainder -= covered
-        self.nroots = nroots
+        self.nroots = SortedSet(nroots)
 
         # Pre-compute interval in which the very previous root
         # needs to be placed.

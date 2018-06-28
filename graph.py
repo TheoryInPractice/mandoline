@@ -223,6 +223,28 @@ class LGraph:
     def in_neighbours(self, iu):
         return self.wr[0][iu]
 
+    def common_in_neighbours(self, vertices):
+        if len(vertices) == 0:
+            return []
+        if len(vertices) == 1:
+            return self.wr[0][vertices[0]]
+
+        # Find vertex with smallest in-neighbourhood  
+        temp = [(len(self.wr[0][iv]),iv) for iv in vertices]
+        smallest = min(temp)[1]
+        smallN = self.wr[0][smallest]
+
+        # Check for each vertex in smallN whether it is connected
+        # to all supplied vertices.
+        res = []
+        for iu in smallN:
+            for iv in vertices:
+                if not self.adjacent(iu, iv):
+                    break
+            else: # Did not break
+                res.append(iu)
+        return res
+
     def adjacent(self, iu, iv):
         if iv < iu:
             i = bisect.bisect_left(self.wr[0][iu], iv)
@@ -329,13 +351,11 @@ class LGraph:
             matches the provided piece.
         """
         assert self.depth() >= piece.depth()
+        # TODO: do we really have to go to maximal depth wreach?
+        # It seems like we could be more discerning here.
         wreach = sorted(self.wreach_all(iu))
-        wreach_indexed = list(zip(range(len(wreach)), wreach))
 
-        # Initialize stack with basic match (mapping root of piece to iu),
-        # or extend the provided partial match. In the latter case, we also
-        # need to determine which leaves still have to be fixed (missing_leaves)
-        debug = False
+        # Prepare basic match by adding the root
         missing_leaves = list(piece.leaves)
 
         if partial_match:
@@ -345,25 +365,51 @@ class LGraph:
 
             missing_leaves = [i for i in missing_leaves if not base_match.is_fixed(i)]
 
-            debug = True
-
-            if debug:
-                print("    base match", base_match)
-                print("    missing leaves", missing_leaves)
         else:
             base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
             if base_match == None:
                 return
 
+        # Early out: match already complete
         if len(missing_leaves) == 0:
             yield base_match
             return
 
-        # stack = [(0, 0, base_match)]
-        for match in self._match_rec(0, 0, base_match, wreach, wreach_indexed, missing_leaves, debug):
+        for match in self._match_rec(piece, wreach, base_match, missing_leaves):
             yield match
 
-    def _match_rec(self, i, leaf_index, match, wreach, wreach_indexed, missing_leaves, debug):
+    def _match_rec(self, piece, wreach, match, missing_leaves):
+        assert(match.is_fixed(piece.root))
+
+        if len(missing_leaves) == 0:
+            yield match
+            return
+
+        i = missing_leaves[-1]
+        candidates = None
+        if i in piece.nroots:
+            # We need to pick this vertex from all wreach vertices.
+            candidates = wreach
+        else:
+            # This vertex lies within the back-neighbourhood of
+            # at least one already matched vertex. 
+            anchors = match.find_anchors(i)
+            assert(len(anchors) > 0)
+            candidates = self.common_in_neighbours(anchors)
+
+        # Restrict to range as defined by already matched vertices.
+        lower, upper = match.get_range(i)
+        ilower = bisect.bisect_left(candidates, lower)
+        iupper = bisect.bisect_right(candidates, upper)
+        for iv in candidates[ilower:iupper]:
+            next_match = match.extend(iv, i)
+            if next_match == None:
+                continue
+            for m in self._match_rec(piece, wreach, next_match, missing_leaves[:-1]):
+                yield m
+
+
+    def _match_rec_old(self, i, leaf_index, match, wreach, wreach_indexed, missing_leaves, debug):
         if debug:
             print("    Wreach: ", wreach)
             print("    Current match is", match)
