@@ -178,14 +178,28 @@ class PatternBuilder:
 
 class Pattern:
     def __init__(self, LG):
-        self.wreach = [None] * len(LG)
-        self.in_neighbours = [None] * len(LG)
-        self.out_neighbours = [SortedSet() for _ in range(len(LG))]
+        n = len(LG)
+        self.wreach = [None] * n
+        self.in_neighbours = [None] * n
+        self.wr_dist = [None] * n
+        self.out_neighbours = [SortedSet() for _ in range(n)]
         for iu in LG:
             self.wreach[iu] = LG.wreach_all(iu)
             self.in_neighbours[iu] = LG.in_neighbours(iu)
             for iv in self.in_neighbours[iu]:
                 self.out_neighbours[iv].add(iu)
+
+        # Compute pairwise 'wr-distance'. Each piece will
+        # inherit a row of this matrix (technically, we only need
+        # one row for every root but I don't want to compute them here).
+        # Note that a a distance 0 here indicates that a vertex is
+        # in the in-neigbourhood of another vertex, a distance d indicates
+        # that we need to compute wr[d] in order to see the connection.
+        for target in range(n):
+            self.wr_dist[target] = [None] * n
+            for d in range(n):
+                for iu in LG.wr[d][target]:
+                    self.wr_dist[target][iu] = d
 
         self.cached_hash = self._compute_hash()
 
@@ -300,7 +314,7 @@ class Pattern:
         return pieces
 
     def __repr__(self):
-        return 'PT'+','.join(map(str,self.in_neighbours))
+        return 'PT'+','.join(map(str,self.in_neighbours)) 
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)
@@ -381,6 +395,9 @@ class Piece:
         self.pattern = pattern
         self.leaves = list(leaves)
 
+        # wr-distance from every leaf to the root
+        self.root_dist = pattern.wr_dist[root]
+
         # At this point this is pure paranoia
         self.leaves.sort() 
 
@@ -454,7 +471,7 @@ class Piece:
         return "Piece {} ({}) {{{}}}".format(
                 " ".join(map(str,self.leaves)),
                  self.root, 
-                ", ".join(map(str,self.edges())))
+                ", ".join(map(str,self.root_dist)))
 
     def adjacent(self, u, v):
         assert u == self.root or u in self.leaves

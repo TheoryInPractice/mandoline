@@ -263,6 +263,12 @@ class LGraph:
     def wreach_iter(self):
         for iu in self:
             yield iu, sorted(self.wreach_all(iu))
+    
+    def wreach_union(self, iu, d):
+        res = []
+        for wr,_ in zip(self.wr, range(d+1)):
+            res.extend(wr[iu])
+        return res
 
     def wreach_all(self, iu):
         res = []
@@ -295,7 +301,7 @@ class LGraph:
     def compute_wr(self, depth):
         # Initialize wr-arrays
         old_depth = len(self.wr)
-        while len(self.wr) <= depth:
+        while len(self.wr) < depth:
             self.wr.append([[] for _ in self])
 
         # We compute each WR as follows: for every vertex u
@@ -307,7 +313,7 @@ class LGraph:
                 if d <= old_depth:
                     continue
                 for iv in layer:
-                    self.wr[d][iv].append(iu)
+                    self.wr[d-1][iv].append(iu)
 
         return self
 
@@ -350,7 +356,7 @@ class LGraph:
             such that ordered graph induced by X \\cup \\{iu\\} 
             matches the provided piece.
         """
-        assert self.depth() >= piece.depth()
+        assert self.depth() >= len(piece.pattern)-1
         # TODO: do we really have to go to maximal depth wreach?
         # It seems like we could be more discerning here.
         wreach = sorted(self.wreach_all(iu))
@@ -364,7 +370,6 @@ class LGraph:
                 return
 
             missing_leaves = [i for i in missing_leaves if not base_match.is_fixed(i)]
-
         else:
             base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
             if base_match == None:
@@ -375,10 +380,10 @@ class LGraph:
             yield base_match
             return
 
-        for match in self._match_rec(piece, wreach, base_match, missing_leaves):
+        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves):
             yield match
 
-    def _match_rec(self, piece, wreach, match, missing_leaves):
+    def _match_rec(self, iu, piece, wreach, match, missing_leaves):
         assert(match.is_fixed(piece.root))
 
         if len(missing_leaves) == 0:
@@ -389,7 +394,11 @@ class LGraph:
         candidates = None
         if i in piece.nroots:
             # We need to pick this vertex from all wreach vertices.
+            assert(piece.root_dist[i] != None)
+            wr_dist = piece.root_dist[i]
+            wr_alt = sorted(self.wreach_union(iu, wr_dist))
             candidates = wreach
+            print(">>>>", wr_dist, len(wreach), len(wr_alt))
         else:
             # This vertex lies within the back-neighbourhood of
             # at least one already matched vertex. 
@@ -405,7 +414,7 @@ class LGraph:
             next_match = match.extend(iv, i)
             if next_match == None:
                 continue
-            for m in self._match_rec(piece, wreach, next_match, missing_leaves[:-1]):
+            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1]):
                 yield m
 
     def _compare(self, mleaves, mroot, piece):
