@@ -188,6 +188,7 @@ if __name__ == "__main__":
     parser.add_argument('G', help='Host graph G')
     parser.add_argument('--validate', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--no-reduction', action='store_true' )
 
     args = parser.parse_args()
 
@@ -206,7 +207,15 @@ if __name__ == "__main__":
     log.info(H)
 
     G = load_graph(args.G)
-    log.info("Loaded host graph with {} vertices".format(len(G)))
+    log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
+
+    if args.no_reduction:
+        log.info("Skipping recution procedure because flag --no-reduction was set")
+    else:
+        mindeg = min(H.degree_sequence()) 
+        log.info("Computing {}-core of host graph".format(mindeg))
+        G = G.compute_core(mindeg)
+        log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
