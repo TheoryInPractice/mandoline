@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
     count = 0
     for P,indexmap in H.enum_patterns():
-        log.debug("Searching pattern".format(P))
+        log.debug("Searching pattern {}".format(P))
         truth = None
         if args.validate:
             truth = list(LG.brute_force_enumerate(P))
