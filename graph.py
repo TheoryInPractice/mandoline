@@ -9,6 +9,10 @@ import math
 
 import unittest
 
+import logging
+
+log = logging.getLogger(__name__)
+
 class indexmap:
     def __init__(self, size):
         self.vertex_to_index = {}
@@ -264,9 +268,9 @@ class LGraph:
         for iu in self:
             yield iu, sorted(self.wreach_all(iu))
     
-    def wreach_union(self, iu, d):
+    def wreach_union(self, iu, min_dist, max_dist):
         res = []
-        for wr,_ in zip(self.wr, range(d+1)):
+        for wr,_ in zip(self.wr, range(min_dist,max_dist+1)):
             res.extend(wr[iu])
         return res
 
@@ -395,10 +399,11 @@ class LGraph:
         if i in piece.nroots:
             # We need to pick this vertex from all wreach vertices.
             assert(piece.root_dist[i] != None)
-            wr_dist = piece.root_dist[i]
-            wr_alt = sorted(self.wreach_union(iu, wr_dist))
+            # TODO: use `narrower' wreach set. Precompute?
+            # wr_dist = piece.root_dist[i]
+            # wr_alt = sorted(self.wreach_union(iu, 1, wr_dist))
             candidates = wreach
-            print(">>>>", wr_dist, len(wreach), len(wr_alt))
+            # print(">>>>", wr_dist, len(wreach), len(wr_alt))
         else:
             # This vertex lies within the back-neighbourhood of
             # at least one already matched vertex. 

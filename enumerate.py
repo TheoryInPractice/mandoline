@@ -13,6 +13,11 @@ import bisect
 import math, random
 import cairo
 
+import logging
+
+log = logging.getLogger(__name__)
+
+
 def find_matches(LG, piece, adhesion):
     matches = defaultdict(SortedSet)
     for iu in LG:
@@ -22,78 +27,77 @@ def find_matches(LG, piece, adhesion):
     return matches
 
 def count_singleton_piece(LG, piece, truth):
-    print("\nCounting singleton piece")
+    log.info("\nCounting singleton piece {}".format(piece))
 
     count = 0
     errors = 0
     matches = set()
     for iu in LG:
-        print("\n")
-        print(iu,":")
+        log.debug("\n{} :".format(iu))
 
         uIN = set(LG.in_neighbours(iu))
 
         # Match primary piece
         for iumatch in LG.match(iu, piece):
             count += 1
-            matches.add(iumatch)
             if truth != None:
+                matches.add(iumatch)                
                 if iumatch in truth:
-                    print(iumatch)
+                    log.debug(iumatch)
                 else:
                     errors += 1
-                    print(">>>", iumatch, "<<<")    
+                    log.debug(">>> {} <<<".format(iumatch))
             else:
-                print(iumatch)     
+                log.debug(iumatch)     
 
-    print("\n\n")
-    print("Total count:", count)
+    log.info("\nPattern count: {}\n".format(count))
 
     if truth:
-        print("False positives:", errors)
+        log.debug("False positives: {}".format(errors))
 
         missing = list(truth - matches)
-        print("Not found:", len(missing))
-        print("Examples:")
-        print(missing[:min(len(missing), 20)])      
+        log.debug("Not found: {}".format(len(missing)))
+        log.debug("Examples: ")
+        log.debug(missing[:min(len(missing), 20)])      
 
         assert(len(missing) == 0)
         assert(errors == 0)          
+
+    return count
 
 def assemble_pieces(LG, pieces, truth):
     adhesions = []
 
     for i,piece in enumerate(pieces):
-        print(i, piece)
-        print("  Leaves:", piece.leaves)
+        log.info("{} {}".format(i, piece))
+        log.info("  Leaves: {}".format(piece.leaves))
 
         adh = list(sorted(set(piece.leaves) & set(pieces[-1].leaves)))
         adhesions.append(adh)
 
-        print("  Adhesion:", adh)
+        log.info("  Adhesion: {}".format(adh))
 
-    print("\nCounting secondary pieces:")
+    log.debug("\nCounting secondary pieces:")
     secondary_matches = []
     for adh,piece in zip(adhesions[:-1], pieces[:-1]):
         matches = find_matches(LG, piece, adh)
         secondary_matches.append(matches)
-        print(piece)
-        print(matches)
+        log.debug(piece)
+        log.debug(matches)
 
-    print("\nAssembling with primary piece:")
+    log.debug("\nAssembling with primary piece:")
 
     count = 0
     errors = 0
     matches = set()
     for iu, wreach in LG.wreach_iter():
-        print("\n")
-        print(iu,":")
+        log.debug("\n{} :".format(iu))
 
         uIN = set(LG.in_neighbours(iu))
 
         # Match primary piece
         for iumatch in LG.match(iu, pieces[-1]):
-            print("Attempting to extend", iumatch)
+            log.debug("Attempting to extend {}".format(iumatch))
 
             candidate_roots = []
             candidate_roots_indexed = []
@@ -106,9 +110,9 @@ def assemble_pieces(LG, pieces, truth):
                 # the left of iu 
                 cands = cands[:cands.bisect_right(iu-1)] 
 
-                print("  piece {}: ".format(i), piece)
-                print("  adhesion:", mapped_adh)
-                print("  candidate roots:", cands)
+                log.debug("  piece {}: {}".format(i, piece))
+                log.debug("  adhesion: {}".format(mapped_adh))
+                log.debug("  candidate roots: {}".format(cands))
 
                 candidate_roots.append(cands)
                 candidate_roots_indexed.append(list(enumerate(cands)))
@@ -122,15 +126,15 @@ def assemble_pieces(LG, pieces, truth):
 
             stack = [(0, 0, 0, iumatch)]
             while len(stack):
-                print("  STCK",stack)
+                log.debug("  STCK {}".format(stack))
                 start_index, root_lower_bnd, piece_index, match = stack.pop()
 
-                print("  possible candidates:", candidate_roots[piece_index]) 
+                log.debug("  possible candidates: {}".format(candidate_roots[piece_index])) 
 
                 lower_index = bisect.bisect_left(candidate_roots[piece_index], root_lower_bnd)
                 lower_index = max(lower_index, start_index)
 
-                print("  restricted candidates:", candidate_roots[piece_index][lower_index:])
+                log.debug("  restricted candidates: {}".format(candidate_roots[piece_index][lower_index:]))
 
                 for i,iv in candidate_roots_indexed[piece_index][lower_index:]:
                     if iv in uIN:
@@ -141,15 +145,15 @@ def assemble_pieces(LG, pieces, truth):
                         # a match for the whole pattern
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
                             count += 1
-                            matches.add(ivmatch)
                             if truth != None:
+                                matches.add(ivmatch)                                
                                 if ivmatch in truth:
-                                    print(ivmatch)
+                                    log.debug(ivmatch)
                                 else:
                                     errors += 1
-                                    print(">>>", ivmatch, "<<<")       
+                                    log.debug(">>> {} <<<".format(ivmatch))
                             else:
-                                print(ivmatch)             
+                                log.debug(ivmatch)             
                     else: 
                         candidates = []
                         for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
@@ -160,22 +164,22 @@ def assemble_pieces(LG, pieces, truth):
                             stack.append((i+1,root_lower_bnd,piece_index,match))
                             stack = stack + candidates 
                             break
-            print("Done with extending", iumatch, "\n")
+            log.debug("Done with extending {}\n".format(iumatch))
 
-    print("\n\n")
-    print("Total count:", count)
+    log.info("\nPattern count: {}\n".format(count))
 
     if truth != None:
-        print("False positives:", errors)
+        log.debug("False positives: {}".format(errors))
 
         missing = list(truth - matches)
-        print("Not found:", len(missing))
-        print("Examples:")
-        print(missing[:min(len(missing), 20)])
+        log.debug("Not found: {}".format(len(missing)))
+        log.debug("Examples:")
+        log.debug(missing[:min(len(missing), 20)])
 
         assert(len(missing) == 0)
         assert(errors == 0)
 
+    return count
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Enumerates H in G')
@@ -183,37 +187,52 @@ if __name__ == "__main__":
     parser.add_argument('H', help='Pattern graph H')
     parser.add_argument('G', help='Host graph G')
     parser.add_argument('--validate', action='store_true')
+    parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
 
+    # Set up logging
+    ch = logging.StreamHandler(sys.stdout)
+    if args.debug:
+        ch.setLevel(logging.DEBUG)
+    else:
+        ch.setLevel(logging.INFO)
+    log.addHandler(ch)
+    log.setLevel(logging.DEBUG)
+
+    # Load pattern and graph
     H = load_graph(args.H)
-    print("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
-    print(H)
+    log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
+    log.info(H)
 
     G = load_graph(args.G)
-    print("Loaded host graph with {} vertices".format(len(G)))
+    log.info("Loaded host graph with {} vertices".format(len(G)))
 
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
+
+    if args.validate:
+        log.debug("Using brute force to validate pattern count")
 
     # TODO: 
     # - pieces can be used as indices so adhesion/frequency should only 
     #   be computed once per piece and used in global data structure
 
+    count = 0
     for P,indexmap in H.enum_patterns():
-        print("Searching pattern", P)
+        log.debug("Searching pattern".format(P))
         truth = None
         if args.validate:
             truth = list(LG.brute_force_enumerate(P))
-            print("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
-            print(truth[:5], "\n")
+            log.debug("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
+            log.debug("{}\n".format(truth[:5]))
             truth = set(truth)
-        else:
-            print("Graph to large to brute force")
 
         pieces = list(P.decompose())
 
         if len(pieces) == 1:
-            count_singleton_piece(LG, pieces[0], truth)
+            count += count_singleton_piece(LG, pieces[0], truth)
         else:
-            assemble_pieces(LG, pieces, truth)
+            count += assemble_pieces(LG, pieces, truth)
+
+    log.info("\nTotal graph count: {}".format(count))

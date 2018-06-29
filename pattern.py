@@ -5,6 +5,10 @@ import bisect
 
 from sortedcontainers import SortedSet
 
+import logging
+
+log = logging.getLogger(__name__)
+
 class BoundingBox:
     """
         Helper class for drawing only.
@@ -75,8 +79,8 @@ class PatternMatch:
 
         left, right = self.get_range(i)
         if u < left or u > right:
-            print("Warning: tried extending {} with {} at {}, invalid range.".format(self, u, i))
-            print("   (Range: {}, {}, {})".format(left, u, right))
+            log.debug("Warning: tried extending {} with {} at {}, invalid range.".format(self, u, i))
+            log.debug("   (Range: {}, {}, {})".format(left, u, right))
             return None
 
         # Test whether extension is valid
