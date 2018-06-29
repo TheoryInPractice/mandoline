@@ -95,6 +95,14 @@ class Graph:
     def add_node(self,u):
         self.nodes.add(u)
 
+    def remove_node(self,u):
+        if u not in self.nodes:
+            return
+        for v in self.neighbours(u):
+            self.adj[v].remove(u)
+        del self.adj[u]
+        self.nodes.remove(u)
+
     def add_edge(self,u,v):
         self.nodes.add(u)
         self.nodes.add(v)        
@@ -183,6 +191,21 @@ class Graph:
             mapping.put(iu, u)
 
         return lgraph, mapping
+
+    def compute_core(self, minDeg):
+        smallDegree = set()
+        largeDegree = set(self.nodes)
+        changed = True
+        while changed:
+            changed = False
+            for v in largeDegree:
+                remaining_N = set(self.neighbours(v)) & largeDegree
+                if len(remaining_N) < minDeg:
+                    smallDegree.add(v)
+                    changed = True
+            largeDegree -= smallDegree
+        largeDegree = self.nodes - smallDegree
+        return self.subgraph(largeDegree)
 
     def enum_patterns(self):
         found = set()

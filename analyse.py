@@ -53,13 +53,20 @@ if __name__ == "__main__":
     G = load_graph(args.G)
     log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
 
-    smallDegree = set()
     minDeg = min(H.degree_sequence())
-    for v in G:
-        if G.degree(v) < minDeg:
-            smallDegree.add(v)
+    G = G.compute_core(minDeg)
+    # while True:
+    #     smallDegree = set()
+    #     for v in G:
+    #         if G.degree(v) < minDeg:
+    #             smallDegree.add(v)
+    #     if len(smallDegree) == 0:
+    #         break
 
-    log.info("{} vertices could be removed since their degree is smaller than {}".format(len(smallDegree), minDeg))
+    #     for v in smallDegree:
+    #         G.remove_node(v)
+
+    log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
