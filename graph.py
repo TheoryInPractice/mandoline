@@ -11,7 +11,7 @@ import unittest
 
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("mandoline")
 
 class indexmap:
     def __init__(self, size):
@@ -384,10 +384,10 @@ class LGraph:
             yield base_match
             return
 
-        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves):
+        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves, 0):
             yield match
 
-    def _match_rec(self, iu, piece, wreach, match, missing_leaves):
+    def _match_rec(self, iu, piece, wreach, match, missing_leaves, depth):
         assert(match.is_fixed(piece.root))
 
         if len(missing_leaves) == 0:
@@ -395,15 +395,21 @@ class LGraph:
             return
 
         i = missing_leaves[-1]
+        prefix = " "*(depth+2)
+        log.debug(prefix+"Matching index {} for  match {}".format(i, match))
         candidates = None
         if i in piece.nroots:
             # We need to pick this vertex from all wreach vertices.
             assert(piece.root_dist[i] != None)
-            # TODO: use `narrower' wreach set. Precompute?
-            # wr_dist = piece.root_dist[i]
-            # wr_alt = sorted(self.wreach_union(iu, 1, wr_dist))
-            candidates = wreach
-            # print(">>>>", wr_dist, len(wreach), len(wr_alt))
+            # Precompute `narrower' wreach set?
+            wr_dist = piece.root_dist[i]
+            wr_alt = sorted(self.wreach_union(iu, 1, wr_dist))
+            candidates = wr_alt
+            # candidates = wreach
+
+            log.debug(prefix+"Index is an nroot at wr-dist {}".format(wr_dist))
+            log.debug(prefix+" Full wreach set {}".format(wreach))
+            log.debug(prefix+" Restricted wreach set {}".format(wr_alt))
         else:
             # This vertex lies within the back-neighbourhood of
             # at least one already matched vertex. 
@@ -411,15 +417,24 @@ class LGraph:
             assert(len(anchors) > 0)
             candidates = self.common_in_neighbours(anchors)
 
+            log.debug(prefix+"Index has anchors {}".format(anchors))
+            log.debug(prefix+" Full wreach set {}".format(wreach))
+            log.debug(prefix+" Restricted wreach set {}".format(candidates))
+
         # Restrict to range as defined by already matched vertices.
         lower, upper = match.get_range(i)
         ilower = bisect.bisect_left(candidates, lower)
         iupper = bisect.bisect_right(candidates, upper)
+
+        log.debug(prefix+"Restricting candidates to range ({},{})".format(lower,upper))
+        log.debug(prefix+" Candidates {}".format(candidates))
+        log.debug(prefix+" Restricted to {} (indices ({}:{}))".format(candidates[ilower:iupper], ilower, iupper))
+
         for iv in candidates[ilower:iupper]:
             next_match = match.extend(iv, i)
             if next_match == None:
                 continue
-            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1]):
+            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1], depth+1):
                 yield m
 
     def _compare(self, mleaves, mroot, piece):

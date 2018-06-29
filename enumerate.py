@@ -15,7 +15,7 @@ import cairo
 
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("mandoline")
 
 
 def find_matches(LG, piece, adhesion):
