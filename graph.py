@@ -270,8 +270,8 @@ class LGraph:
     
     def wreach_union(self, iu, min_dist, max_dist):
         res = []
-        for wr,_ in zip(self.wr, range(min_dist,max_dist+1)):
-            res.extend(wr[iu])
+        for d in range(min_dist, max_dist+1):
+            res.extend(self.wr[d][iu])
         return res
 
     def wreach_all(self, iu):
@@ -367,6 +367,10 @@ class LGraph:
 
         # Prepare basic match by adding the root
         missing_leaves = list(piece.leaves)
+
+        log.debug("Wreach-sets of vertex {}:".format(iu))
+        for d,wr in enumerate(self.wr):
+            log.debug("({}) {}".format(d, wr[iu]))
 
         if partial_match:
             base_match = partial_match.extend(iu, piece.root)
