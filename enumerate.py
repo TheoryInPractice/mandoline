@@ -79,11 +79,22 @@ def assemble_pieces(LG, pieces, truth):
 
     log.debug("\nCounting secondary pieces:")
     secondary_matches = []
-    for adh,piece in zip(adhesions[:-1], pieces[:-1]):
-        matches = find_matches(LG, piece, adh)
-        secondary_matches.append(matches)
+    for i,(adh,piece) in enumerate(zip(adhesions[:-1], pieces[:-1])):
+        equiv_piece = None
+        for j,previous_piece in enumerate(pieces):
+            if j >= i:
+                break
+            if piece.root_equivalent(previous_piece):
+                equiv_piece = j
+                break
+
+        if equiv_piece != None:
+            log.info("  Piece %d is root-equivalent to piece %d, copying.", i, equiv_piece)
+            secondary_matches.append(secondary_matches[equiv_piece])
+        else:
+            matches = find_matches(LG, piece, adh)
+            secondary_matches.append(matches)
         log.debug(piece)
-        log.debug(matches)
 
     log.debug("\nAssembling with primary piece:")
 
@@ -217,8 +228,10 @@ if __name__ == "__main__":
         G = G.compute_core(mindeg)
         log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
+    log.info("Computing {}-wcol sets".format(len(H)-1))
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
+    log.info("Done.")
 
     if args.validate:
         log.debug("Using brute force to validate pattern count")
