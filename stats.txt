@@ -39,3 +39,24 @@ time ./enumerate.py example-graphs/P6.txt example-graphs/karate.txt.gz > /dev/nu
 real    0m3.628s
 user    0m3.594s
 sys     0m0.017s
+
+
+
+Version 3fcda0f (02.07.2018)
+----------------------------
+
+time ./enumerate.py example-graphs/K5.txt example-graphs/soc-advogato.txt.gz > /dev/null   
+real    0m58.587s
+user    0m57.583s
+sys     0m0.331s
+
+time ./enumerate.py example-graphs/P5.txt example-graphs/codeminer.txt.gz > /dev/null     
+
+real    1m1.024s
+user    1m0.440s
+sys     0m0.269s
+
+time ./enumerate.py example-graphs/P6.txt example-graphs/karate.txt.gz > /dev/null 
+real    0m20.813s
+user    0m20.600s
+sys     0m0.124s
