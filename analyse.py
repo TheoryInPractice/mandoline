@@ -159,6 +159,6 @@ if __name__ == "__main__":
         log.info("\n")
 
 
-        break # TEMP! For benchmark only
+        # break # TEMP! For benchmark only
 
     log.info("{} of {} vertices marked as useful.".format(len(marked), len(LG)))

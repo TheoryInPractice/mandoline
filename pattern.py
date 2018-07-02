@@ -79,8 +79,8 @@ class PatternMatch:
 
         left, right = self.get_range(i)
         if u < left or u > right:
-            log.debug("Warning: tried extending {} with {} at {}, invalid range.".format(self, u, i))
-            log.debug("   (Range: {}, {}, {})".format(left, u, right))
+            log.debug("Warning: tried extending %d with %d at %d, invalid range.", self, u, i)
+            log.debug("   (Range: %d, %d, %d)",  left, u, right )
             return None
 
         # Test whether extension is valid

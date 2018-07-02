@@ -4,6 +4,8 @@ import gzip
 from operator import itemgetter
 from itertools import chain, combinations, permutations
 
+from sortedcontainers import SortedSet
+
 import bisect
 import math
 
@@ -274,13 +276,9 @@ class LGraph:
 
     def adjacent(self, iu, iv):
         if iv < iu:
-            i = bisect.bisect_left(self.wr[0][iu], iv)
-            return i != len(self.wr[0][iu]) and self.wr[0][iu][i] == iv
-            # return iv in self.wr[0][iu]
+            return iv in self.wr[0][iu]
         else:
-            i = bisect.bisect_left(self.wr[0][iv], iu)
-            return i != len(self.wr[0][iv]) and self.wr[0][iv][i] == iu
-            # return iu in self.wr[0][iv]
+            return iu in self.wr[0][iv]
 
     def edges(self):
         for u in self:
@@ -304,12 +302,12 @@ class LGraph:
         return res
 
     def _add_node(self, iu, iN):
-        iN = list(sorted(iN))
+        iN = SortedSet(iN)
         self.wr[0].append(iN)
-        self.outN.append([])
+        self.outN.append(SortedSet())
 
         for iv in iN:
-            self.outN[iv].append(iu)
+            self.outN[iv].add(iu)
 
     def forward_bfs(self, iroot, r):
         curr = set([iroot])
@@ -391,9 +389,9 @@ class LGraph:
         # Prepare basic match by adding the root
         missing_leaves = list(piece.leaves)
 
-        log.debug("Wreach-sets of vertex {}:".format(iu))
+        log.debug("Wreach-sets of vertex %d:", iu)
         for d,wr in enumerate(self.wr):
-            log.debug("({}) {}".format(d, wr[iu]))
+            log.debug("(%d) %s", d, wr[iu])
 
         if partial_match:
             base_match = partial_match.extend(iu, piece.root)
@@ -423,7 +421,7 @@ class LGraph:
 
         i = missing_leaves[-1]
         prefix = " "*(depth+2)
-        log.debug(prefix+"Matching index {} for  match {}".format(i, match))
+        log.debug(prefix+"Matching index %d for  match %s", i, match)
         candidates = None
         if i in piece.nroots:
             # We need to pick this vertex from all wreach vertices.
@@ -434,9 +432,9 @@ class LGraph:
             candidates = wr_alt
             # candidates = wreach
 
-            log.debug(prefix+"Index is an nroot at wr-dist {}".format(wr_dist))
-            log.debug(prefix+" Full wreach set {}".format(wreach))
-            log.debug(prefix+" Restricted wreach set {}".format(wr_alt))
+            log.debug(prefix+"Index is an nroot at wr-dist %s", wr_dist)
+            log.debug(prefix+" Full wreach set %s", wreach)
+            log.debug(prefix+" Restricted wreach set %s", wr_alt)
         else:
             # This vertex lies within the back-neighbourhood of
             # at least one already matched vertex. 
@@ -444,18 +442,18 @@ class LGraph:
             assert(len(anchors) > 0)
             candidates = self.common_in_neighbours(anchors)
 
-            log.debug(prefix+"Index has anchors {}".format(anchors))
-            log.debug(prefix+" Full wreach set {}".format(wreach))
-            log.debug(prefix+" Restricted wreach set {}".format(candidates))
+            log.debug(prefix+"Index has anchors %s", anchors)
+            log.debug(prefix+" Full wreach set %s", wreach)
+            log.debug(prefix+" Restricted wreach set %s", candidates)
 
         # Restrict to range as defined by already matched vertices.
         lower, upper = match.get_range(i)
         ilower = bisect.bisect_left(candidates, lower)
         iupper = bisect.bisect_right(candidates, upper)
 
-        log.debug(prefix+"Restricting candidates to range ({},{})".format(lower,upper))
-        log.debug(prefix+" Candidates {}".format(candidates))
-        log.debug(prefix+" Restricted to {} (indices ({}:{}))".format(candidates[ilower:iupper], ilower, iupper))
+        log.debug(prefix+"Restricting candidates to range (%d,%d)", lower,upper)
+        log.debug(prefix+" Candidates %s", candidates)
+        log.debug(prefix+" Restricted to %s (indices (%d:%d))", candidates[ilower:iupper], ilower, iupper)
 
         for iv in candidates[ilower:iupper]:
             next_match = match.extend(iv, i)
