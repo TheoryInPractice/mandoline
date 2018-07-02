@@ -158,4 +158,7 @@ if __name__ == "__main__":
             log.info("{}:, {:.2f}%".format(l, 100*vertex_leaf_count[l]/len(G)))
         log.info("\n")
 
+
+        break # TEMP! For benchmark only
+
     log.info("{} of {} vertices marked as useful.".format(len(marked), len(LG)))

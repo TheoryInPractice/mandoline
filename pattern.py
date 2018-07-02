@@ -189,7 +189,7 @@ class Pattern:
         self.out_neighbours = [SortedSet() for _ in range(n)]
         for iu in LG:
             self.wreach[iu] = LG.wreach_all(iu)
-            self.in_neighbours[iu] = LG.in_neighbours(iu)
+            self.in_neighbours[iu] = SortedSet(LG.in_neighbours(iu))
             for iv in self.in_neighbours[iu]:
                 self.out_neighbours[iv].add(iu)
 
@@ -284,13 +284,9 @@ class Pattern:
 
     def adjacent(self, iu, iv):
         if iv < iu:
-            i = bisect.bisect_left(self.in_neighbours[iu], iv)
-            return i != len(self.in_neighbours[iu]) and self.in_neighbours[iu][i] == iv
-            # return iv in self.wr[0][iu]
+            return iv in self.in_neighbours[iu]
         else:
-            i = bisect.bisect_left(self.in_neighbours[iv], iu)
-            return i != len(self.in_neighbours[iv]) and self.in_neighbours[iv][i] == iu
-            # return iu in self.wr[0][iv]
+            return iu in self.in_neighbours[iv]
 
     def decompose(self):
         """
