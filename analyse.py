@@ -53,23 +53,16 @@ if __name__ == "__main__":
     G = load_graph(args.G)
     log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
 
+    # Reduce to \delta(H)-core
     minDeg = min(H.degree_sequence())
     G = G.compute_core(minDeg)
-    # while True:
-    #     smallDegree = set()
-    #     for v in G:
-    #         if G.degree(v) < minDeg:
-    #             smallDegree.add(v)
-    #     if len(smallDegree) == 0:
-    #         break
-
-    #     for v in smallDegree:
-    #         G.remove_node(v)
 
     log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
     LG, mapping = G.to_lgraph()
     LG.compute_wr(len(H)-1)
+
+    marked = set() # Mark vertices that are useful for at least one patter
 
     for P,indexmap in H.enum_patterns():
         log.info("Current pattern {}".format(P))
@@ -80,33 +73,62 @@ if __name__ == "__main__":
         vertex_leaf_count = Counter()
         vertex_root_colours = defaultdict(set)        
         piece_membership = [SortedSet() for _ in range(len(P))]
-        leaves = SortedSet()
-
-        if len(pieces) == 1:
-            log.info("(Skipping single-piece pattern)")
-            continue
+        
+        leaves = SortedSet() # Collect vertices that appear as leaves
 
         for i,piece in enumerate(pieces):
             log.info("{} {}".format(i, piece))
             log.info("  Leaves: {}".format(piece.leaves))
 
+            # Update leaf-set            
             leaves.update(piece.leaves)
 
+            # Update piece-lef-membership
             for j in piece.leaves:
                 piece_membership[j].add(i)
             piece_membership[piece.root].add(i)
 
-            adh = list(sorted(set(piece.leaves) & set(pieces[-1].leaves)))
-            # adhesions.append(adh)
+            # Compare to previous pieces. If they are equivalent up to
+            # the index of the root, we can simply copy the information
+            # from the previous piece since all matches will work out
+            # exactly the same.
+            equiv_piece = None
+            for j,previous_piece in enumerate(pieces):
+                if j >= i:
+                    break
+                if piece.root_equivalent(previous_piece):
+                    equiv_piece = j
+                    break
 
-            log.info("  Adhesion: {}".format(adh))
-            log.info("  Matches:")
-            for m in find_matches_adh(LG, piece, adh):
-                for j,v in m.matched_vertices():
-                    vertex_matches[v][j].add(i)
+            if equiv_piece != None:
+                log.info("Found equivalent piece {}!".format(j))
+
+                # Copy info from equivalent piece
+                for j in piece.leaves:
+                    if equiv_piece in piece_membership[j]:
+                        piece_membership[j].add(i)
+
+                for iv in LG:
+                    for index in leaves:
+                        if equiv_piece in vertex_matches[iv][index]:
+                            vertex_matches[iv][index].add(i)
+            else:
+                adh = list(sorted(set(piece.leaves) & set(pieces[-1].leaves)))
+
+                log.info("  Adhesion: {}".format(adh))
+                log.info("  Matches:")
+                for m in find_matches_adh(LG, piece, adh):
+                    for index,iv in m.matched_vertices():
+                        # Record that v matches 'index' in piece i
+                        vertex_matches[iv][index].add(i)
         
-        log.info("Piece membership: {}".format(piece_membership))
 
+        # Determine which vertices can be matched to what pattern
+        # by merging the information we obtained form each piece.
+        # The idea here is that some vertice must appear as leaves in
+        # multiple patterns in order to be mapped to a vertex of the 
+        # whole pattern.
+        log.info("Piece membership: {}".format(piece_membership))        
         for v,matches in vertex_matches.items():
             for i in matches:
                 if i in leaves:
@@ -126,6 +148,8 @@ if __name__ == "__main__":
         for iv in LG:
             if iv not in vertex_leaf_colours and iv not in vertex_root_colours:
                 unmatched += 1
+            else:
+                marked.add(iv)
 
         log.info("Non-leaf vertices: {} ({:.1f}%)".format(non_leaves, 100.0*non_leaves/n ))
         log.info("Non-root vertices: {} ({:.1f}%)".format(non_roots, 100.0*non_roots/n ))
@@ -133,3 +157,5 @@ if __name__ == "__main__":
         for l in leaves:
             log.info("{}:, {:.2f}%".format(l, 100*vertex_leaf_count[l]/len(G)))
         log.info("\n")
+
+    log.info("{} of {} vertices marked as useful.".format(len(marked), len(LG)))

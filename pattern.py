@@ -482,6 +482,23 @@ class Piece:
         assert v == self.root or v in self.leaves
         return self.pattern.adjacent(u,v)
 
+    def root_equivalent(self, other):
+        """
+            Tests whether two piece are isomorphic up to the
+            index of the root. Two conditions have to be met:
+            the leave sets are the same and the roots have the
+            same neighbourhood.
+        """
+        if self.pattern != other.pattern:
+            return False
+        pattern = self.pattern
+        if self.leaves != other.leaves:
+            return False
+
+        assert(len(pattern.out_neighbours[self.root]) == 0)
+        assert(len(pattern.out_neighbours[other.root]) == 0)
+        return pattern.in_neighbours[self.root] == pattern.in_neighbours[other.root]
+
     def insertion_interval(self):
         return self.interval
 
