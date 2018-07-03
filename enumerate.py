@@ -43,13 +43,13 @@ class MatchValidator:
             log.debug(match)
         else:
             self.errors += 1
-            log.debug(">>> {} <<<".format(match))
+            log.debug(">>> %s <<<", match)
 
     def finalize(self):
-        log.debug("False positives: {}".format(self.errors))
+        log.debug("False positives: %d", self.errors)
 
         missing = list(self.truth - self.matches)
-        log.debug("Not found: {}".format(len(missing)))
+        log.debug("Not found: %d", len(missing))
         log.debug("Examples: ")
         log.debug(missing[:min(len(missing), 20)])      
 
@@ -100,7 +100,7 @@ def count_singleton_piece(LG, piece, recorder):
     log.info("\nCounting singleton piece {}".format(piece))
 
     for iu in LG:
-        log.debug("\n{} :".format(iu))
+        log.debug("\n%d :", iu)
 
         uIN = set(LG.in_neighbours(iu))
 
