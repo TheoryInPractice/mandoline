@@ -17,6 +17,76 @@ import logging
 
 log = logging.getLogger("mandoline")
 
+class MatchCounter:
+    def __init__(self):
+        self.count = 0
+
+    def record(self, match):
+        self.count += 1
+        log.debug(match)
+
+    def finalize(self):
+        pass
+
+    def __len__(self):
+        return self.count
+
+class MatchValidator:
+    def __init__(self, truth):
+        self.truth = truth
+        self.errors = 0
+        self.matches = set()
+
+    def record(self, match):
+        self.matches.add(match)                
+        if match in self.truth:
+            log.debug(match)
+        else:
+            self.errors += 1
+            log.debug(">>> {} <<<".format(match))
+
+    def finalize(self):
+        log.debug("False positives: {}".format(self.errors))
+
+        missing = list(self.truth - self.matches)
+        log.debug("Not found: {}".format(len(missing)))
+        log.debug("Examples: ")
+        log.debug(missing[:min(len(missing), 20)])      
+
+        assert(len(missing) == 0)
+        assert(self.errors == 0)      
+
+    def __len__(self):
+        return len(self.matches)    
+
+def complete_rooted_match(LG, r, pieces, partial_match):
+    if r >= len(pieces):
+        assert(partial_match.is_complete())
+        yield partial_match
+        return
+
+    for match in LG.complete(pieces[r], partial_match):
+        for res in complete_rooted_match(LG, r+1, pieces, match):
+            yield res
+
+def independent_root_sets(LG, root_candidates):
+    assert(len(root_candidates) >= 2)
+    for iu in root_candidates[0]:
+        for res in _independent_root_sets_rec(LG, [iu], 1, root_candidates):
+            yield res
+
+def _independent_root_sets_rec(LG, selection, r, root_candidates):
+    if r == len(root_candidates):
+        yield selection
+        return
+
+    lower = bisect.bisect_right(root_candidates[r], selection[-1])
+    for iu in root_candidates[r][lower:]:
+        Nu = LG.in_neighbours(iu) # Selection so far lies to the left of iu
+        if len(Nu & set(selection)) > 0:
+            continue # Not independent
+        for res in _independent_root_sets_rec(LG, selection+[iu], r+1, root_candidates):
+            yield res
 
 def find_matches(LG, piece, adhesion):
     matches = defaultdict(SortedSet)
@@ -26,171 +96,119 @@ def find_matches(LG, piece, adhesion):
             matches[mapped_adhesion].add(iu)
     return matches
 
-def count_singleton_piece(LG, piece, truth):
+def count_singleton_piece(LG, piece, recorder):
     log.info("\nCounting singleton piece {}".format(piece))
 
-    count = 0
-    errors = 0
-    matches = set()
     for iu in LG:
         log.debug("\n{} :".format(iu))
 
         uIN = set(LG.in_neighbours(iu))
 
         # Match primary piece
-        for iumatch in LG.match(iu, piece):
-            count += 1
-            if truth != None:
-                matches.add(iumatch)                
-                if iumatch in truth:
-                    log.debug(iumatch)
-                else:
-                    errors += 1
-                    log.debug(">>> {} <<<".format(iumatch))
-            else:
-                log.debug(iumatch)     
+        for match in LG.match(iu, piece):
+            recorder.record(match)
 
-    log.info("\nPattern count: {}\n".format(count))
+def assemble_pieces(LG, pieces, recorder):
+    prim_piece = pieces[-1]
+    sec_pieces = pieces[:-1]
 
-    if truth:
-        log.debug("False positives: {}".format(errors))
-
-        missing = list(truth - matches)
-        log.debug("Not found: {}".format(len(missing)))
-        log.debug("Examples: ")
-        log.debug(missing[:min(len(missing), 20)])      
-
-        assert(len(missing) == 0)
-        assert(errors == 0)          
-
-    return count
-
-def assemble_pieces(LG, pieces, truth):
     adhesions = []
+    root_indices = []
 
-    for i,piece in enumerate(pieces):
+    log.info("Primary {}".format(prim_piece))
+    log.info("  Leaves: {}".format(prim_piece.leaves))
+
+    # Compute adhesion sets and root indices  of every secondary piece
+    for i,piece in enumerate(sec_pieces):
         log.info("{} {}".format(i, piece))
         log.info("  Leaves: {}".format(piece.leaves))
 
-        adh = list(sorted(set(piece.leaves) & set(pieces[-1].leaves)))
+        adh = list(sorted(set(piece.leaves) & set(prim_piece.leaves)))
         adhesions.append(adh)
+        root_indices.append(piece.root)
 
         log.info("  Adhesion: {}".format(adh))
 
-    log.debug("\nCounting secondary pieces:")
-    secondary_matches = []
-    for i,(adh,piece) in enumerate(zip(adhesions[:-1], pieces[:-1])):
-        equiv_piece = None
-        for j,previous_piece in enumerate(pieces):
-            if j >= i:
-                break
-            if piece.root_equivalent(previous_piece):
-                equiv_piece = j
-                break
+    # Supplement with info from primary piece
+    root_indices.append(prim_piece.root)
 
-        if equiv_piece != None:
-            log.info("  Piece %d is root-equivalent to piece %d, copying.", i, equiv_piece)
-            secondary_matches.append(secondary_matches[equiv_piece])
-        else:
-            matches = find_matches(LG, piece, adh)
-            secondary_matches.append(matches)
-        log.debug(piece)
+    log.info("Roots: %s", root_indices)
 
-    log.debug("\nAssembling with primary piece:")
+    # Collect boundaries for primary matches
+    log.debug("Computing primary matches for piece %s", prim_piece)
+    prim_matches = defaultdict(SortedSet)
+    for iu in LG:
+        for match in LG.match(iu, prim_piece):
+            boundary = match.restrict_to(prim_piece.leaves)
+            prim_matches[boundary].add(iu)
+            log.debug("  Primary match %s", boundary)
 
-    count = 0
-    errors = 0
-    matches = set()
-    for iu, wreach in LG.wreach_iter():
-        log.debug("\n{} :".format(iu))
+    # Determine interesting secondary piece boundaries from
+    # the collected primary boundaries and note for each vertex
+    # which matches are `allowed' (meaning they might lead to 
+    # a full match)
+    sec_matches = defaultdict(SortedSet)
+    filtered_leaves = set(prim_piece.leaves)
+    allowed_matches = defaultdict(set)
+    log.debug("Computing secondary bondaries")
+    for prim_boundary in prim_matches:
+        for index, iv in prim_boundary.matched_vertices():
+            assert(index in filtered_leaves)
+            allowed_matches[iv].add(index)
+        for i, sec_adh in enumerate(adhesions):
+            sec_boundary = prim_boundary.restrict_to(sec_adh)
+            if sec_boundary not in sec_matches:
+                log.debug("  Sec. boundary for piece %d: %s", i, sec_boundary)
+            sec_matches[sec_boundary] # This adds the key to the defaultdict
 
-        uIN = set(LG.in_neighbours(iu))
 
-        # Match primary piece
-        for iumatch in LG.match(iu, pieces[-1]):
-            log.debug("Attempting to extend {}".format(iumatch))
+    # Collect secondary matches
+    for i, (piece, sec_adh) in enumerate(zip(sec_pieces,adhesions)):
+        log.debug("Computing secondary matches for piece %s", piece)
+        for iu in LG:
+            for match in LG.match(iu, piece, filtered_leaves=filtered_leaves, allowed_matches=allowed_matches):
+                boundary = match.restrict_to(sec_adh)
+                if boundary in sec_matches:
+                    log.debug("  Match: %s", boundary)
+                    sec_matches[boundary].add(iu)
+                else:
+                    log.debug("  Dismissing match: %s, bondary %s not found", match, boundary)
 
-            candidate_roots = []
-            candidate_roots_indexed = []
-            max_count = 1
-            for i,(adh,piece) in enumerate(zip(adhesions[:-1], pieces[:-1])):
-                mapped_adh = iumatch.restrict_to(adh)
-                cands = secondary_matches[i][mapped_adh]
-                
-                # We can restrict ourselves to candidates that lie to
-                # the left of iu 
-                cands = cands[:cands.bisect_right(iu-1)] 
+    # Assemble!
+    for prim_boundary in prim_matches:
+        # Collect candidate roots
+        cand_roots = []
+        max_count = 1
+        for i, (piece, sec_adh) in enumerate(zip(sec_pieces,adhesions)):
+            sec_boundary = prim_boundary.restrict_to(sec_adh)
+            cand_roots.append(sec_matches[sec_boundary])
+            max_count *= len(cand_roots[-1]) 
+        cand_roots.append(prim_matches[prim_boundary])
+        max_count *= len(cand_roots[-1])
 
-                log.debug("  piece {}: {}".format(i, piece))
-                log.debug("  adhesion: {}".format(mapped_adh))
-                log.debug("  candidate roots: {}".format(cands))
+        # Early out: at least one piece cannot be matched
+        if max_count == 0:
+            continue
 
-                candidate_roots.append(cands)
-                candidate_roots_indexed.append(list(enumerate(cands)))
-                max_count *= len(cands)
+        log.debug("Matches for boundary %s", prim_boundary)
+        for i,candidates in enumerate(cand_roots):
+            log.debug("  (%d) %s",i, candidates)
+        for root_set in independent_root_sets(LG, cand_roots):
+            extension = list(zip(root_indices, root_set))
+            partial_match = prim_boundary.extend_multiple(extension)
 
-            assert len(candidate_roots) > 0 # Single-piece pattern case handled elsewhere 
-
-            if max_count == 0: 
-                # At least one candidate set was empty
+            if partial_match == None:
                 continue
 
-            stack = [(0, 0, 0, iumatch)]
-            while len(stack):
-                log.debug("  STCK {}".format(stack))
-                start_index, root_lower_bnd, piece_index, match = stack.pop()
-
-                log.debug("  possible candidates: {}".format(candidate_roots[piece_index])) 
-
-                lower_index = bisect.bisect_left(candidate_roots[piece_index], root_lower_bnd)
-                lower_index = max(lower_index, start_index)
-
-                log.debug("  restricted candidates: {}".format(candidate_roots[piece_index][lower_index:]))
-
-                for i,iv in candidate_roots_indexed[piece_index][lower_index:]:
-                    if iv in uIN:
-                        continue # Abort: iu, iv are neighbours
-
-                    if piece_index == len(pieces)-2:
-                        # Last piece to be matched.  Every match here is
-                        # a match for the whole pattern
-                        for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
-                            count += 1
-                            if truth != None:
-                                matches.add(ivmatch)                                
-                                if ivmatch in truth:
-                                    log.debug(ivmatch)
-                                else:
-                                    errors += 1
-                                    log.debug(">>> {} <<<".format(ivmatch))
-                            else:
-                                log.debug(ivmatch)             
-                    else: 
-                        candidates = []
-                        for ivmatch in LG.match(iv, pieces[piece_index], partial_match=match):
-                            candidates.append((0,iv,piece_index+1,ivmatch))
-
-                        if len(candidates) > 0:
-                            # Need to keep working one the `parent' match
-                            stack.append((i+1,root_lower_bnd,piece_index,match))
-                            stack = stack + candidates 
-                            break
-            log.debug("Done with extending {}\n".format(iumatch))
-
-    log.info("\nPattern count: {}\n".format(count))
-
-    if truth != None:
-        log.debug("False positives: {}".format(errors))
-
-        missing = list(truth - matches)
-        log.debug("Not found: {}".format(len(missing)))
-        log.debug("Examples:")
-        log.debug(missing[:min(len(missing), 20)])
-
-        assert(len(missing) == 0)
-        assert(errors == 0)
-
-    return count
+            if partial_match.is_complete():
+                recorder.record(partial_match)
+                log.debug(">>> %s %s", extension, partial_match)                
+            else:
+                # TODO!
+                log.debug(">>> Completing partial match %s %s", extension, partial_match)  
+                for match in complete_rooted_match(LG, 0, pieces, partial_match):
+                    log.debug(">>> %s", match)
+                    recorder.record(match)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Enumerates H in G')
@@ -242,19 +260,25 @@ if __name__ == "__main__":
 
     count = 0
     for P,indexmap in H.enum_patterns():
-        log.debug("Searching pattern {}".format(P))
-        truth = None
+        log.info("Searching pattern {}".format(P))
+
+        recorder = MatchCounter()
         if args.validate:
             truth = list(LG.brute_force_enumerate(P))
-            log.debug("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
-            log.debug("{}\n".format(truth[:5]))
+            log.info("Found pattern {} times as ordered subgraph by brute force, e.g.".format(len(truth)))
+            log.info("{}\n".format(truth[:5]))
             truth = set(truth)
+            recorder = MatchValidator(truth)
 
         pieces = list(P.decompose())
 
+        pattern_count = 0
         if len(pieces) == 1:
-            count += count_singleton_piece(LG, pieces[0], truth)
+            count_singleton_piece(LG, pieces[0], recorder)
         else:
-            count += assemble_pieces(LG, pieces, truth)
+            assemble_pieces(LG, pieces, recorder)
+        recorder.finalize()
+        count += len(recorder)
+        log.info("\nPattern count: {}\n".format(len(recorder)))
 
     log.info("\nTotal graph count: {}".format(count))

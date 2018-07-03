@@ -3,43 +3,60 @@
 from graph import Graph, load_graph
 from collections import Counter
 from pattern import PatternBuilder, Pattern
-import math, random
+import sys, math, random
+import argparse
+
+import logging
+
+log = logging.getLogger("mandoline")
 
 if __name__ == '__main__':
-	H = Graph()
-	H.add_edge(0,1)
-	H.add_edge(1,2)
-	H.add_edge(2,3)
-	H.add_edge(3,4)
-	H.add_edge(4,5)
-	H.add_edge(5,6)
-	H.add_edge(7,8)
+    parser = argparse.ArgumentParser(description='Decomposes a given small graph H')
 
-	count_patterns = 0
-	count_pieces = 0
+    parser.add_argument('H', help='Pattern graph H')
+    parser.add_argument('--debug', action='store_true')
 
-	all_pieces = set()
-	secondary_pieces = set()
+    args = parser.parse_args()
 
-	for pattern,indexmap in H.enum_patterns():
-		# print(pattern, hash(pattern))
-		count_patterns += 1
+    # Set up logging
+    ch = logging.StreamHandler(sys.stdout)
+    if args.debug:
+        ch.setLevel(logging.DEBUG)
+    else:
+        ch.setLevel(logging.INFO)
+    log.addHandler(ch)
+    log.setLevel(logging.DEBUG)
 
-		patterns = pattern.decompose()
-		for piece in patterns:
-			# print("   ", piece, hash(piece))
-			all_pieces.add(piece)
-			count_pieces += 1
+    # Load pattern
+    H = load_graph(args.H)
+    log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
+    log.info(H)
+    
+    count_patterns = 0
+    count_pieces = 0
 
-		for piece in patterns[:-1]:
-			secondary_pieces.add(piece)
+    all_pieces = set()
+    secondary_pieces = set()
 
-	print("")
-	print("{} patterns".format(count_patterns))
-	print("{} pieces".format(count_pieces))
+    for pattern,indexmap in H.enum_patterns():
+        log.debug("%s %d", pattern, hash(pattern))
+        count_patterns += 1
 
-	k = len(all_pieces)
-	print("  of which {} ({:.1f}%) are unique".format(k,k/count_pieces * 100))
+        patterns = pattern.decompose()
+        for piece in patterns:
+            log.debug("    %s %d", piece, hash(piece))
+            all_pieces.add(piece)
+            count_pieces += 1
 
-	k = len(secondary_pieces) + count_patterns
-	print("  of which {} ({:.1f}%) are primary or unique secondary".format(k,k/count_pieces * 100))
+        for piece in patterns[:-1]:
+            secondary_pieces.add(piece)
+
+    log.info("")
+    log.info("{} patterns".format(count_patterns))
+    log.info("{} pieces".format(count_pieces))
+
+    k = len(all_pieces)
+    log.info("  of which {} ({:.1f}%) are unique".format(k,k/count_pieces * 100))
+
+    k = len(secondary_pieces) + count_patterns
+    log.info("  of which {} ({:.1f}%) are primary or unique secondary".format(k,k/count_pieces * 100))

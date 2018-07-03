@@ -53,6 +53,24 @@ class PatternMatch:
     def __len__(self):
         return len(self.index_to_vertex)
 
+    def __getitem__(self, i):
+        return self.index_to_vertex[i]
+
+    def is_complete(self):
+        """ Returns true if all indices have been filled with vertices """
+        return len(self.vertex_to_index) == len(self.index_to_vertex)
+
+    def covers_piece(self, piece):
+        """ Returns whether all indices of the provided piece are filled in this match """
+        if self.index_to_vertex[piece.root] == None:
+            return False
+
+        for i in piece.leaves:
+            if self.index_to_vertex[i] == None:
+                return False
+
+        return True
+
     def matched_vertices(self):
         indices = range(len(self.index_to_vertex))
         return [(i,self.index_to_vertex[i]) for i in indices if self.index_to_vertex[i] != None ]
@@ -72,8 +90,27 @@ class PatternMatch:
         res = [iv for iv in res if iv != None ]
         return res
 
+    def extend_multiple(self, extensions):
+        """
+            Performs multiple extensions, provided as an array of the form
+            [(index, vertex) ...]. Returns None if the matches are incompatible
+            with the pattern or order.
+        """
+        res = self
 
-    def extend(self, u, i):
+        for i, u in extensions:
+            res = res.extend(i, u)
+            if res == None:
+                return None
+
+        return res
+
+    def extend(self, i, u):
+        """
+            Extends the match by putting u on the index i. If the extension
+            is invalid (u has the wrong edges towards already matched vertices
+            or u break the order of the match) this function returns None.
+        """
         if self.index_to_vertex[i] != None or u in self.vertex_to_index:
             return None # Invalid: index or vertex already assigned
 
@@ -101,13 +138,13 @@ class PatternMatch:
 
     def restrict_to(self, indices):
         """
-            Restricts the current pattern to the provided
+            Restricts the current match to the provided
             indices, all others are 'forgotten'
         """
         res = PatternMatch(self.LG, self.pattern)
         for i in indices:
             iu = self.index_to_vertex[i]
-            assert iu != None
+            assert iu != None, "Cannot restrict {} to {}, index {} is not set.".format(self, indices, i)
             res.vertex_to_index[iu] = i
 
         temp = list(self.index_to_vertex)
@@ -314,7 +351,7 @@ class Pattern:
         return pieces
 
     def __repr__(self):
-        return 'PT'+','.join(map(str,self.in_neighbours)) 
+        return 'PT'+','.join(map(lambda s: str(list(s)),self.in_neighbours)) 
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)

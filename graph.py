@@ -361,7 +361,7 @@ class LGraph:
 
             match = PatternMatch(self, _pattern)
             for iu, i in zip(cand, _pattern):
-                match = match.extend(iu,i)
+                match = match.extend(i, iu)
                 if not match:
                     break
             else:
@@ -374,14 +374,18 @@ class LGraph:
             # else:
             #     yield cand
 
-    def match(self, iu, piece, partial_match=None):
-        from pattern import PatternMatch
+    def match(self, iu, piece, partial_match=None, filtered_leaves=None, allowed_matches=None):
         """
             Returns all ordered sets X \\subseteq WR(iu)
             such that ordered graph induced by X \\cup \\{iu\\} 
             matches the provided piece.
         """
+        from pattern import PatternMatch
         assert self.depth() >= len(piece.pattern)-1
+
+        if filtered_leaves == None:
+            filtered_leaves = set() 
+
         # TODO: do we really have to go to maximal depth wreach?
         # It seems like we could be more discerning here.
         wreach = sorted(self.wreach_all(iu))
@@ -394,33 +398,44 @@ class LGraph:
             log.debug("(%d) %s", d, wr[iu])
 
         if partial_match:
-            base_match = partial_match.extend(iu, piece.root)
+            base_match = partial_match.extend(piece.root, iu)
             if base_match == None:
                 return
 
             missing_leaves = [i for i in missing_leaves if not base_match.is_fixed(i)]
         else:
-            base_match = PatternMatch(self, piece.pattern).extend(iu, piece.root)
+            base_match = PatternMatch(self, piece.pattern).extend(piece.root, iu)
             if base_match == None:
                 return
 
-        # Early out: match already complete
-        if len(missing_leaves) == 0:
-            yield base_match
-            return
-
-        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves, 0):
+        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves, filtered_leaves, allowed_matches, 0):
             yield match
 
-    def _match_rec(self, iu, piece, wreach, match, missing_leaves, depth):
-        assert(match.is_fixed(piece.root))
+    def complete(self, piece, partial_match):
+        """
+            Completes the provided partial match to contain
+            all vertices of the given piece. All roots
+            must habe been set for this to work.
+        """
+        from pattern import PatternMatch        
+        assert self.depth() >= len(piece.pattern)-1
 
+        missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
+
+        for match in self._match_rec(None, piece, None, partial_match, missing_leaves, set(), None, 0):
+            yield match
+
+    def _match_rec(self, iu, piece, wreach, match, missing_leaves, filtered_leaves, allowed_matches, depth):
+        assert(match[piece.root] != None)
+
+        prefix = " "*(depth+2)
+        log.debug(prefix+"CALL %s %s %s %s", iu, piece, match, missing_leaves)
         if len(missing_leaves) == 0:
+            log.debug(prefix+"RETURN match %s", match)
             yield match
             return
 
         i = missing_leaves[-1]
-        prefix = " "*(depth+2)
         log.debug(prefix+"Matching index %d for  match %s", i, match)
         candidates = None
         if i in piece.nroots:
@@ -428,7 +443,7 @@ class LGraph:
             assert(piece.root_dist[i] != None)
             # Precompute `narrower' wreach set?
             wr_dist = piece.root_dist[i]
-            wr_alt = sorted(self.wreach_union(iu, 1, wr_dist))
+            wr_alt = sorted(self.wreach_union(match[piece.root], 1, wr_dist))
             candidates = wr_alt
             # candidates = wreach
 
@@ -455,11 +470,18 @@ class LGraph:
         log.debug(prefix+" Candidates %s", candidates)
         log.debug(prefix+" Restricted to %s (indices (%d:%d))", candidates[ilower:iupper], ilower, iupper)
 
+        # TODO: Optimize by testing whether allowe_leaves != None outside the loop
         for iv in candidates[ilower:iupper]:
-            next_match = match.extend(iv, i)
-            if next_match == None:
+            if i in filtered_leaves and i not in allowed_matches[iv]:
+                log.debug(prefix+"Index %d is not allowed for vertex %d (allowed are %s)", i, iv, allowed_matches[iv])
                 continue
-            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1], depth+1):
+            log.debug(prefix+"Putting %d on index %d", iv, i)
+            next_match = match.extend(i, iv)
+            if next_match == None:
+                log.debug(prefix+" > Not a match")
+                continue
+            log.debug(prefix+" > Match, recursing")
+            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1], filtered_leaves, allowed_matches, depth+1):
                 yield m
 
     def _compare(self, mleaves, mroot, piece):
