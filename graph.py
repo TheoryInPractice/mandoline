@@ -386,10 +386,6 @@ class LGraph:
         if filtered_leaves == None:
             filtered_leaves = set() 
 
-        # TODO: do we really have to go to maximal depth wreach?
-        # It seems like we could be more discerning here.
-        wreach = sorted(self.wreach_all(iu))
-
         # Prepare basic match by adding the root
         missing_leaves = list(piece.leaves)
 
@@ -408,7 +404,7 @@ class LGraph:
             if base_match == None:
                 return
 
-        for match in self._match_rec(iu, piece, wreach, base_match, missing_leaves, filtered_leaves, allowed_matches, 0):
+        for match in self._match_rec(piece, base_match, missing_leaves, filtered_leaves, allowed_matches, 0):
             yield match
 
     def complete(self, piece, partial_match):
@@ -422,34 +418,31 @@ class LGraph:
 
         missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
 
-        for match in self._match_rec(None, piece, None, partial_match, missing_leaves, set(), None, 0):
+        for match in self._match_rec(piece, partial_match, missing_leaves, set(), None, 0):
             yield match
 
-    def _match_rec(self, iu, piece, wreach, match, missing_leaves, filtered_leaves, allowed_matches, depth):
+    def _match_rec(self, piece, match, missing_leaves, filtered_leaves, allowed_matches, depth):
         assert(match[piece.root] != None)
 
         prefix = " "*(depth+2)
-        log.debug(prefix+"CALL %s %s %s %s", iu, piece, match, missing_leaves)
+        log.debug("%sCALL %s %s %s", prefix, piece, match, missing_leaves)
         if len(missing_leaves) == 0:
             log.debug(prefix+"RETURN match %s", match)
             yield match
             return
 
         i = missing_leaves[-1]
-        log.debug(prefix+"Matching index %d for  match %s", i, match)
+        log.debug("%sMatching index %d for match %s", prefix, i, match)
         candidates = None
         if i in piece.nroots:
             # We need to pick this vertex from all wreach vertices.
             assert(piece.root_dist[i] != None)
-            # Precompute `narrower' wreach set?
             wr_dist = piece.root_dist[i]
             wr_alt = sorted(self.wreach_union(match[piece.root], 1, wr_dist))
             candidates = wr_alt
-            # candidates = wreach
 
-            log.debug(prefix+"Index is an nroot at wr-dist %s", wr_dist)
-            log.debug(prefix+" Full wreach set %s", wreach)
-            log.debug(prefix+" Restricted wreach set %s", wr_alt)
+            log.debug("%sIndex is an nroot at wr-dist %s", prefix, wr_dist)
+            log.debug("%s Restricted wreach set %s", prefix, wr_alt)
         else:
             # This vertex lies within the back-neighbourhood of
             # at least one already matched vertex. 
@@ -457,31 +450,28 @@ class LGraph:
             assert(len(anchors) > 0)
             candidates = self.common_in_neighbours(anchors)
 
-            log.debug(prefix+"Index has anchors %s", anchors)
-            log.debug(prefix+" Full wreach set %s", wreach)
-            log.debug(prefix+" Restricted wreach set %s", candidates)
+            log.debug("%sIndex has anchors %s", prefix, anchors)
+            log.debug("%s Restricted wreach set %s", prefix, candidates)
 
         # Restrict to range as defined by already matched vertices.
         lower, upper = match.get_range(i)
         ilower = bisect.bisect_left(candidates, lower)
         iupper = bisect.bisect_right(candidates, upper)
 
-        log.debug(prefix+"Restricting candidates to range (%d,%d)", lower,upper)
-        log.debug(prefix+" Candidates %s", candidates)
-        log.debug(prefix+" Restricted to %s (indices (%d:%d))", candidates[ilower:iupper], ilower, iupper)
+        log.debug("%sRestricting candidates to range (%d,%d)", prefix, lower,upper)
+        log.debug("%s Candidates %s", prefix, candidates)
+        log.debug("%s Restricted to %s (indices (%d:%d))", prefix, candidates[ilower:iupper], ilower, iupper)
 
         # TODO: Optimize by testing whether allowe_leaves != None outside the loop
         for iv in candidates[ilower:iupper]:
             if i in filtered_leaves and i not in allowed_matches[iv]:
-                log.debug(prefix+"Index %d is not allowed for vertex %d (allowed are %s)", i, iv, allowed_matches[iv])
+                log.debug("%sIndex %d is not allowed for vertex %d (allowed are %s)", prefix, i, iv, allowed_matches[iv])
                 continue
-            log.debug(prefix+"Putting %d on index %d", iv, i)
+            log.debug("%sPutting %d on index %d", prefix, iv, i)
             next_match = match.extend(i, iv)
             if next_match == None:
-                log.debug(prefix+" > Not a match")
                 continue
-            log.debug(prefix+" > Match, recursing")
-            for m in self._match_rec(iu, piece, wreach, next_match, missing_leaves[:-1], filtered_leaves, allowed_matches, depth+1):
+            for m in self._match_rec(piece, next_match, missing_leaves[:-1], filtered_leaves, allowed_matches, depth+1):
                 yield m
 
     def _compare(self, mleaves, mroot, piece):
