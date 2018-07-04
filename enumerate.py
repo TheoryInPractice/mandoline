@@ -71,9 +71,25 @@ def complete_rooted_match(LG, r, pieces, partial_match):
 
 def independent_root_sets(LG, root_candidates):
     assert(len(root_candidates) >= 2)
-    for iu in root_candidates[0]:
-        for res in _independent_root_sets_rec(LG, [iu], 1, root_candidates):
+
+    if len(root_candidates) == 2:
+        for res in _independent_root_sets_binary(LG, root_candidates[0], root_candidates[1]):
             yield res
+    else:
+        for iu in root_candidates[0]:
+            for res in _independent_root_sets_rec(LG, [iu], 1, root_candidates):
+                yield res
+
+def _independent_root_sets_binary(LG, root_candsA, root_candsB):
+    posB = 0
+    nB = len(root_candsB)
+
+    for vA in root_candsA:
+        posB = bisect.bisect_right(root_candsB, vA, lo=posB)
+
+        for vB in root_candsB[posB:]:
+            if not LG.adjacent_ordered(vA, vB):
+                yield [vA, vB]
 
 def _independent_root_sets_rec(LG, selection, r, root_candidates):
     if r == len(root_candidates):

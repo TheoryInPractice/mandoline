@@ -161,7 +161,7 @@ class PatternMatch:
     def is_fixed(self, i):
         return self.index_to_vertex[i] != None
 
-    def get_range(self,i):
+    def get_range(self, i):
         """
             Returns the possible range of values for the index i,
             as dictated by the already set indices to the left and
@@ -169,6 +169,10 @@ class PatternMatch:
             sides, so values a,b are allowed. If b < a, no possible values
             exist.
         """
+        v = self.index_to_vertex[i]
+        if v != None:
+            return (v,v)
+
         ileft, iright = i, i
         while ileft >= 0 and self.index_to_vertex[ileft] == None:
             ileft -= 1
@@ -194,7 +198,7 @@ class PatternMatch:
     def __eq__(self, other):    
         if isinstance(other, self.__class__):
             return self.LG == other.LG and self.pattern == other.pattern and self.index_to_vertex == other.index_to_vertex
-        return False
+        # return False
 
     def __repr__(self):
         return "PM "+ ",".join(map(lambda x: "_" if x == None else str(x), self.index_to_vertex))
@@ -326,6 +330,10 @@ class Pattern:
             return iv in self.in_neighbours[iu]
         else:
             return iu in self.in_neighbours[iv]
+
+    def adjacent_ordered(self, iu, iv):
+        # Assumes iu < iv
+        return iu in self.in_neighbours[iv]
 
     def decompose(self):
         """
@@ -594,40 +602,4 @@ class TestPatternMethods(unittest.TestCase):
         self.assertNotEqual(H1, H3)
 
 if __name__ == '__main__':
-    # unittest.main()
-
-    G = Graph.path(100)
-    LG, _ = G.to_lgraph() 
-
-    H = Graph.path(5)
-    H = H.to_lgraph(order=list(range(5)))[0]
-    print(H)
-
-    P = Pattern(H)
-    print(P)
-
-    match = PatternMatch(LG, P)
-
-    print(match)
-    print([match.get_range(i) for i in P])
-    print()
-
-    match = match.extend(4, 52)
-    print(match)
-    print([match.get_range(i) for i in P])    
-    print()
-
-    match = match.extend(0, 10)
-    print(match)
-    print([match.get_range(i) for i in P])    
-    print()
-
-    match = match.extend(2, 50)
-    print(match)
-    print([match.get_range(i) for i in P])    
-    print()
-
-    match = match.extend(3, 51)
-    print(match)
-    print([match.get_range(i) for i in P])    
-    print()
+    unittest.main()

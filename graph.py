@@ -289,6 +289,10 @@ class LGraph:
         else:
             return iu in self.wr[0][iv]
 
+    def adjacent_ordered(self, iu, iv):
+        # Assume that iu < iv!
+        return iu in self.wr[0][iv]
+
     def edges(self):
         for u in self:
             for v in self.wr[0][u]:
