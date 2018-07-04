@@ -179,8 +179,8 @@ class PatternMatch:
         
         # TODO: this can be slightly improved, since every slot between
         # i and ileft (iright) is empty, this narrows the range further.
-        lbound = 0 if ileft < 0 else self.index_to_vertex[ileft]+1
-        rbound = len(self.LG) if iright >= k else self.index_to_vertex[iright]-1
+        lbound = i if ileft < 0 else self.index_to_vertex[ileft]+(i-ileft)
+        rbound = len(self.LG)-(k-i) if iright >= k else self.index_to_vertex[iright]-(iright-i)
 
         return (lbound, rbound)
 
@@ -220,6 +220,8 @@ class PatternBuilder:
 class Pattern:
     def __init__(self, LG):
         n = len(LG)
+        LG.compute_wr(n)
+
         self.wreach = [None] * n
         self.in_neighbours = [None] * n
         self.wr_dist = [None] * n
@@ -592,4 +594,40 @@ class TestPatternMethods(unittest.TestCase):
         self.assertNotEqual(H1, H3)
 
 if __name__ == '__main__':
-    unittest.main()
+    # unittest.main()
+
+    G = Graph.path(100)
+    LG, _ = G.to_lgraph() 
+
+    H = Graph.path(5)
+    H = H.to_lgraph(order=list(range(5)))[0]
+    print(H)
+
+    P = Pattern(H)
+    print(P)
+
+    match = PatternMatch(LG, P)
+
+    print(match)
+    print([match.get_range(i) for i in P])
+    print()
+
+    match = match.extend(4, 52)
+    print(match)
+    print([match.get_range(i) for i in P])    
+    print()
+
+    match = match.extend(0, 10)
+    print(match)
+    print([match.get_range(i) for i in P])    
+    print()
+
+    match = match.extend(2, 50)
+    print(match)
+    print([match.get_range(i) for i in P])    
+    print()
+
+    match = match.extend(3, 51)
+    print(match)
+    print([match.get_range(i) for i in P])    
+    print()

@@ -235,6 +235,15 @@ class Graph:
         pat.compute_wr(len(pat))
         return Pattern(pat), mapping
 
+    @staticmethod
+    def path(n):
+        res = Graph()
+        for u in range(n):
+            res.add_node(u)
+        for u,v in zip(range(n-1), range(1,n)):
+            res.add_edge(u,v)
+        return res
+
 class LGraph:
     def __init__(self):
         self.wr = [[]]
