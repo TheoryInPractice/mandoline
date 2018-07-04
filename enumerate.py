@@ -224,16 +224,17 @@ if __name__ == "__main__":
 
     # Set up logging
     ch = logging.StreamHandler(sys.stdout)
-    if args.debug:
+    if args.quiet:
+        # Mute on top level, don't add handler
+        log.setLevel(logging.CRITICAL)
+    elif args.debug:
         ch.setLevel(logging.DEBUG)
+        log.setLevel(logging.DEBUG)
+        log.addHandler(ch)
     else:
         ch.setLevel(logging.INFO)
-
-    if not args.quiet:
+        log.setLevel(logging.INFO)
         log.addHandler(ch)
-        log.setLevel(logging.DEBUG)
-    else:
-        log.setLevel(logging.CRITICAL)
 
     # Load pattern and graph
     H = load_graph(args.H)
