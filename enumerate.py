@@ -218,6 +218,7 @@ if __name__ == "__main__":
     parser.add_argument('--validate', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--no-reduction', action='store_true' )
+    parser.add_argument('--quiet', action='store_true' )
 
     args = parser.parse_args()
 
@@ -227,8 +228,12 @@ if __name__ == "__main__":
         ch.setLevel(logging.DEBUG)
     else:
         ch.setLevel(logging.INFO)
-    log.addHandler(ch)
-    log.setLevel(logging.DEBUG)
+
+    if not args.quiet:
+        log.addHandler(ch)
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.CRITICAL)
 
     # Load pattern and graph
     H = load_graph(args.H)
@@ -279,6 +284,7 @@ if __name__ == "__main__":
             assemble_pieces(LG, pieces, recorder)
         recorder.finalize()
         count += len(recorder)
-        log.info("\nPattern count: {}\n".format(len(recorder)))
+        log.info("\nPattern count: %d\n", len(recorder))
 
-    log.info("\nTotal graph count: {}".format(count))
+    # Always print the final count, even in --quiet mode.
+    print("\nTotal graph count: {}".format(count))
