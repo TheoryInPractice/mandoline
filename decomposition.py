@@ -34,6 +34,7 @@ if __name__ == '__main__':
     
     count_patterns = 0
     count_pieces = 0
+    count_degenerate_pieces = 0
 
     all_pieces = set()
     secondary_pieces = set()
@@ -42,14 +43,18 @@ if __name__ == '__main__':
         log.debug("%s %d", pattern, hash(pattern))
         count_patterns += 1
 
-        patterns = pattern.decompose()
-        for piece in patterns:
+        pieces = pattern.decompose()
+        prim_leaves = set(pieces[-1].leaves)
+        for piece in pieces:
             log.debug("    %s %d", piece, hash(piece))
             all_pieces.add(piece)
             count_pieces += 1
 
-        for piece in patterns[:-1]:
+        for piece in pieces[:-1]:
             secondary_pieces.add(piece)
+
+            if set(piece.leaves) == prim_leaves:
+                count_degenerate_pieces += 1
 
     log.info("")
     log.info("{} patterns".format(count_patterns))
@@ -60,3 +65,6 @@ if __name__ == '__main__':
 
     k = len(secondary_pieces) + count_patterns
     log.info("  of which {} ({:.1f}%) are primary or unique secondary".format(k,k/count_pieces * 100))
+
+    k = count_degenerate_pieces
+    log.info("  of which {} ({:.1f}%) or degenerate".format(k,k/count_pieces * 100))

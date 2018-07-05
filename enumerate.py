@@ -60,6 +60,10 @@ class MatchValidator:
         return len(self.matches)    
 
 def complete_rooted_match(LG, r, pieces, partial_match):
+    """
+        Complete a partial match in which all roots have
+        been already matched.
+    """
     if r >= len(pieces):
         assert(partial_match.is_complete())
         yield partial_match
@@ -70,10 +74,18 @@ def complete_rooted_match(LG, r, pieces, partial_match):
             yield res
 
 def independent_root_sets(LG, root_candidates):
+    """
+        Given a r lists of candidates (root_candidates) and a linear graph LG,
+        compute all ordered independent sets of size r that pick exactly one 
+        vertex from each set.
+    """
     assert(len(root_candidates) >= 2)
 
     if len(root_candidates) == 2:
-        for res in _independent_root_sets_binary(LG, root_candidates[0], root_candidates[1]):
+        for res in _independent_root_sets_binary(LG, *root_candidates):
+            yield res
+    elif len(root_candidates) == 3:
+        for res in _independent_root_sets_ternary(LG, *root_candidates):
             yield res
     else:
         for iu in root_candidates[0]:
@@ -90,6 +102,26 @@ def _independent_root_sets_binary(LG, root_candsA, root_candsB):
         for vB in root_candsB[posB:]:
             if not LG.adjacent_ordered(vA, vB):
                 yield [vA, vB]
+
+def _independent_root_sets_ternary(LG, root_candsA, root_candsB, root_candsC):
+    posB = 0
+    nB = len(root_candsB)
+    nC = len(root_candsC)
+
+    for vA in root_candsA:
+        posB = bisect.bisect_right(root_candsB, vA, lo=posB)
+        posC = 0
+        
+        for vB in root_candsB[posB:]:
+            if LG.adjacent_ordered(vA, vB):
+               continue
+
+            posC = bisect.bisect_right(root_candsC, vB, lo=posC)                
+            if posC >= nC:
+                break
+            for vC in root_candsC[posC:]:
+                if not LG.adjacent_ordered(vA, vC) and not LG.adjacent_ordered(vB, vC):
+                    yield [vA, vB, vC]
 
 def _independent_root_sets_rec(LG, selection, r, root_candidates):
     if r == len(root_candidates):
