@@ -144,3 +144,11 @@ Total graph count: 1099
 real    0m3.650s
 user    0m3.573s
 sys     0m0.018s
+
+time ./enumerate.py example-graphs/S3,2.txt example-graphs/karate.txt.gz --quiet
+
+Total graph count: 260
+
+real    0m10.735s
+user    0m10.573s
+sys     0m0.038s

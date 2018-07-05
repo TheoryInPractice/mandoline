@@ -130,9 +130,9 @@ def _independent_root_sets_rec(LG, selection, r, root_candidates):
 
     lower = bisect.bisect_right(root_candidates[r], selection[-1])
     for iu in root_candidates[r][lower:]:
-        Nu = LG.in_neighbours(iu) # Selection so far lies to the left of iu
-        if len(Nu & set(selection)) > 0:
-            continue # Not independent
+        for iv in selection:
+            if LG.adjacent_ordered(iv, iu):
+                continue # Not independent
         for res in _independent_root_sets_rec(LG, selection+[iu], r+1, root_candidates):
             yield res
 
