@@ -115,3 +115,32 @@ Total graph count: 1099
 real    0m5.559s
 user    0m5.508s
 sys     0m0.019s
+
+
+Version 904a393 (05.07.2018)
+--------------------------------------------------
+
+time ./enumerate.py example-graphs/K5.txt example-graphs/soc-advogato.txt.gz --quiet 
+
+Total graph count: 275183
+
+real    0m22.604s
+user    0m22.294s
+sys     0m0.067s
+
+time ./enumerate.py example-graphs/P5.txt example-graphs/codeminer.txt.gz --quiet
+
+Total graph count: 26698
+
+real    0m16.951s
+user    0m16.759s
+sys     0m0.014s
+
+
+time ./enumerate.py example-graphs/P6.txt example-graphs/karate.txt.gz --quiet
+
+Total graph count: 1099
+
+real    0m3.650s
+user    0m3.573s
+sys     0m0.018s

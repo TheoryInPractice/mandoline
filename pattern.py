@@ -47,8 +47,10 @@ class PatternMatch:
     def __init__(self, LG, pattern):
         self.LG = LG
         self.pattern = pattern
-        self.vertex_to_index = dict()
+        self.vertex_to_index = {}
         self.index_to_vertex = tuple([None] * len(pattern))
+
+        self._range_cache = {}
 
     def __len__(self):
         return len(self.index_to_vertex)
@@ -169,23 +171,32 @@ class PatternMatch:
             sides, so values a,b are allowed. If b < a, no possible values
             exist.
         """
-        v = self.index_to_vertex[i]
-        if v != None:
-            return (v,v)
+        if i in self._range_cache:
+            return self._range_cache[i]
 
-        ileft, iright = i, i
+        assert(self.index_to_vertex[i] == None)
+        # v = self.index_to_vertex[i]
+        # if v != None:
+        #     return (v,v)
+
+        ileft = iright = i
         while ileft >= 0 and self.index_to_vertex[ileft] == None:
             ileft -= 1
 
         k = len(self)
         while iright < k and self.index_to_vertex[iright] == None:
             iright += 1
-        
-        # TODO: this can be slightly improved, since every slot between
-        # i and ileft (iright) is empty, this narrows the range further.
-        lbound = i if ileft < 0 else self.index_to_vertex[ileft]+(i-ileft)
-        rbound = len(self.LG)-(k-i) if iright >= k else self.index_to_vertex[iright]-(iright-i)
 
+        lbound = i
+        if ileft >= 0:
+            lbound = self.index_to_vertex[ileft]+(i-ileft)
+
+        rbound = len(self.LG)-(k-i)
+        if iright < k:
+            rbound = self.index_to_vertex[iright]-(iright-i)
+
+        # Cache result
+        self._range_cache[i] = (lbound, rbound)
         return (lbound, rbound)
 
 
