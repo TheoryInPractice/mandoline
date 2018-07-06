@@ -41,7 +41,7 @@ class indexmap:
         return [self.vertex_to_index[v] if v in self.vertex_to_index else None for v in vertices]
 
     def __repr__(self):
-        return 'IM['+','.join(self.index_to_vertex)+']'
+        return 'IM['+','.join(map(str,self.index_to_vertex))+']'
 
 def load_graph(filename):
     import os.path
@@ -73,7 +73,16 @@ class Graph:
         self.adj = defaultdict(set)
         self.nodes = set()
 
-    def __contains__(self,u):
+    @staticmethod
+    def from_graph(other):
+        res = Graph()
+        for v in other:
+            res.add_node(v)
+        for u,v in other.edges():
+            res.add_edge(u,v)
+        return res
+
+    def __contains__(self, u):
         return u in self.nodes
 
     def __iter__(self):
@@ -235,6 +244,58 @@ class Graph:
         pat.compute_wr(len(pat))
         return Pattern(pat), mapping
 
+    def is_connected(self):
+        if len(self.nodes) <= 1:
+            return True
+        root = next(iter(self.nodes))
+        return len(self.bfs(root)) == len(self.nodes)
+
+    def connected_components(self): 
+        n = len(self)
+        res = []
+        if n == 0:
+            return res
+
+        remainder = set(self.nodes)
+        while len(remainder) > 0:
+            root = next(iter(remainder))
+            comp_nodes = self.bfs(root)
+            component = Graph()
+            res.append(self.subgraph(comp_nodes))
+            remainder -= comp_nodes
+        return res
+
+    def subgraph(self, nodes):
+        nodes = set(nodes)
+        res = Graph()
+        for v in nodes:
+            res.add_node(v)
+            for u in self.neighbours(v) & nodes:
+                res.add_edge(u,v)
+        return res
+
+    def bfs(self, root):
+        res = set()
+        for layer in self.bfs_layers(root):
+            res |= layer
+        return res
+
+    def bfs_layers(self, root):
+        curr = set([root])
+        yield frozenset([root])
+
+        seen = set()
+        while True:
+            seen |= curr
+            _next = set()
+            for u in curr:
+                _next |= set(self.neighbours(u))
+            _next -= seen
+            if len(_next) == 0:
+                break
+            curr = _next
+            yield frozenset(curr)
+
     @staticmethod
     def path(n):
         res = Graph()
@@ -381,12 +442,6 @@ class LGraph:
                 assert match
                 yield match            
 
-            # for (mu,u), (mv,v) in itertools.combinations(mapping, 2):
-            #     if _pattern.adjacent(u,v) != self.adjacent(mu, mv):
-            #         break
-            # else:
-            #     yield cand
-
     def match(self, iu, piece, partial_match=None, filtered_leaves=None, allowed_matches=None):
         """
             Returns all ordered sets X \\subseteq WR(iu)
@@ -509,7 +564,7 @@ class LGraph:
         return True 
 
     def __repr__(self):
-        return ','.join(map(str,self.wr[0]))
+        return ','.join(map(lambda s: str(list(s)),self.wr[0]))
      
 
 

@@ -18,6 +18,11 @@ import logging
 
 log = logging.getLogger("mandoline")
 
+def short_str(l):
+    if len(l) == 0:
+        return '.'
+    return ''.join(map(str,l))
+
 class TD:
     @staticmethod
     def decompose(G, order):
@@ -27,6 +32,7 @@ class TD:
 
     @staticmethod
     def _decompose_rec(G, subG, order, sep):
+        sep = list(sep)
         depth = len(sep)
         R = Graph.from_graph(subG)
         in_neighbours = []
@@ -35,18 +41,18 @@ class TD:
                 continue
 
             Nv = sorted([sep.index(u) for u in G.neighbours(v) if u in sep])
-            in_neighbours.append(Nv)
+            in_neighbours.append(tuple(Nv))
             sep.append(v)
             R.remove_node(v)
             if not R.is_connected():
-                break        
+                break
 
         children = []
         for CC in R.connected_components():
-            children.append(TD._decompose_rec(G, CC, order, list(sep)))
+            children.append(TD._decompose_rec(G, CC, order, tuple(sep)))
         children.sort(key=lambda c: c.bag)
 
-        res = TD(list(sep), in_neighbours, children, depth)
+        res = TD(tuple(sep), in_neighbours, children, depth)
         return res
 
     def __init__(self, sep, in_neighbours, children, depth):
@@ -62,7 +68,7 @@ class TD:
     def __hash__(self):
         res = 219787954134**(self.depth+1)
         for N in self.in_neighbours:
-            res += hash(tuple(N))
+            res += hash(N)
         for c in self.children:
             res += hash(c)
         return res
@@ -85,9 +91,9 @@ class TD:
 
     def __repr__(self):
         if len(self.children) == 0:
-            return ''.join(map(str, self.in_neighbours))
+            return ','.join(map(lambda N: short_str(N), self.in_neighbours))
         else:
-            return ''.join(map(str, self.in_neighbours)) + '{' + ','.join(map(str, self.children)) + '}'       
+            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + ','.join(map(str, self.children)) + '}'       
 
     def order_string(self):
         if len(self.children) == 0:
@@ -96,7 +102,7 @@ class TD:
             return ''.join(map(str, self.bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Counts H in G')
+    parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')
 
     parser.add_argument('H', help='Pattern graph H')
     # parser.add_argument('G', help='Host graph G')
@@ -124,22 +130,6 @@ if __name__ == "__main__":
     H = load_graph(args.H)
     log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
     log.info(H)
-
-    # G = load_graph(args.G)
-    # log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
-
-    # if args.no_reduction:
-    #     log.info("Skipping recution procedure because flag --no-reduction was set")
-    # else:
-    #     mindeg = min(H.degree_sequence()) 
-    #     log.info("Computing {}-core of host graph".format(mindeg))
-    #     G = G.compute_core(mindeg)
-    #     log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
-
-    # log.info("Computing {}-wcol sets".format(len(H)-1))
-    # LG, mapping = G.to_lgraph()
-    # LG.compute_wr(len(H)-1)
-    # log.info("Done.")
 
     seen = set()
     for order in permutations(H):

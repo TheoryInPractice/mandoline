@@ -3,82 +3,155 @@
 from graph import Graph, load_graph
 from pattern import PatternBuilder, Pattern
 
+import argparse
+import itertools
 import sys
 
 from collections import defaultdict
+from sortedcontainers import SortedSet
+from itertools import permutations
 import bisect
 import math, random
 import cairo
 
-class Increment:
-    def __init__(self):
-        self.events = []
+import logging
 
-    def record(self, time):
-        assert(len(self.events) == 0 or self.events[-1] < time)
-        self.events.append(time)
+log = logging.getLogger("mandoline")
 
-    def query(self, time):
-        # Find the number of events that happened
-        # before 'time'.
-        index = bisect.bisect_right(time)
-        return index 
+class TD:
+    @staticmethod
+    def decompose(G, order):
+        assert(G.is_connected())
+       
+        return TD._decompose_rec(G, G, order, [])
 
-class DPTable:
-    def __init__(self):
-        self.events = defaultdict(lambda: Increment())
+    @staticmethod
+    def _decompose_rec(G, subG, order, sep):
+        depth = len(sep)
+        R = Graph.from_graph(subG)
+        in_neighbours = []
+        for v in order:
+            if v not in R:
+                continue
 
-    def record(self, roots, adhesion, pos):
-        adhesion = tuple(adhesion)
-        self.events[adhesion].record(pos)
+            Nv = sorted([sep.index(u) for u in G.neighbours(v) if u in sep])
+            in_neighbours.append(Nv)
+            sep.append(v)
+            R.remove_node(v)
+            if not R.is_connected():
+                break        
 
-    def query(self, roots, adhesion, start, end):
-        pass
+        children = []
+        for CC in R.connected_components():
+            children.append(TD._decompose_rec(G, CC, order, list(sep)))
+        children.sort(key=lambda c: c.bag)
 
+        res = TD(list(sep), in_neighbours, children, depth)
+        return res
 
+    def __init__(self, sep, in_neighbours, children, depth):
+        self.parent = None
+        self.sep = sep
+        self.bag = sep[depth:]
+        self.in_neighbours = in_neighbours
+        self.depth = depth
+        self.children = children
+        for c in self.children:
+            c.parent = self
 
+    def __hash__(self):
+        res = 219787954134**(self.depth+1)
+        for N in self.in_neighbours:
+            res += hash(tuple(N))
+        for c in self.children:
+            res += hash(c)
+        return res
 
-# Small path in longer path
-G = load_graph('example-graphs/path.txt.gz')
-H = PatternBuilder(4) \
-        .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
-        .build() 
+    def __eq__(self, other):
+        if other == None:
+            return False
 
-# Triangle with tail in karate
-G = load_graph('example-graphs/karate.txt.gz')
-H = PatternBuilder(4) \
-        .add_edge(0,1).add_edge(1,2).add_edge(0,2).add_edge(0, 3) \
-        .build()
+        if self.depth != other.depth or len(self.children) != len(other.children):
+            return False
 
-LG,mapping = G.to_lgraph()
-LG.compute_wr(len(H)-1)
+        if self.in_neighbours != other.in_neighbours:
+            return False
 
-pieces = list(H.decompose())
-for i,piece in enumerate(pieces):
-    print(i, piece)
-    print("  Leaves:", piece.leaves)
-    print("  Adhesion:", piece.adhesion)
+        for child, other_child in zip(self.children, other.children):
+            if child != other_child:
+                return False
 
-DP = DPTable()
-candidates = [defaultdict(list) for _ in pieces]
+        return True
 
-for iu in LG:
-    wreach = sorted(LG.wreach_all(iu))
+    def __repr__(self):
+        if len(self.children) == 0:
+            return ''.join(map(str, self.in_neighbours))
+        else:
+            return ''.join(map(str, self.in_neighbours)) + '{' + ','.join(map(str, self.children)) + '}'       
 
-    prev_adhesion = []
-    for i, piece in enumerate(pieces):
-        for ileaves in LG.match(iu, piece):
-            # The set ileaves together with iu induces
-            # a graph isomorphic to the current piece
-            mapping = dict(zip(piece.leaves, ileaves))
+    def order_string(self):
+        if len(self.children) == 0:
+            return ''.join(map(str, self.bag))
+        else:
+            return ''.join(map(str, self.bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
-            # Determine adhesion sets under current mapping
-            curr_adhesion_mapped = tuple([mapping[iv] for iv in piece.adhesion])
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Counts H in G')
 
-            candidates[i][curr_adhesion_mapped].append(iu)
+    parser.add_argument('H', help='Pattern graph H')
+    # parser.add_argument('G', help='Host graph G')
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--no-reduction', action='store_true' )
+    parser.add_argument('--quiet', action='store_true' )
 
-print()
-for i, piece in enumerate(pieces):
-    print("Matches for", piece, ":")
-    print(" ",candidates[i])
+    args = parser.parse_args()
 
+    # Set up logging
+    ch = logging.StreamHandler(sys.stdout)
+    if args.quiet:
+        # Mute on top level, don't add handler
+        log.setLevel(logging.CRITICAL)
+    elif args.debug:
+        ch.setLevel(logging.DEBUG)
+        log.setLevel(logging.DEBUG)
+        log.addHandler(ch)
+    else:
+        ch.setLevel(logging.INFO)
+        log.setLevel(logging.INFO)
+        log.addHandler(ch)
+
+    # Load pattern and graph
+    H = load_graph(args.H)
+    log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
+    log.info(H)
+
+    # G = load_graph(args.G)
+    # log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
+
+    # if args.no_reduction:
+    #     log.info("Skipping recution procedure because flag --no-reduction was set")
+    # else:
+    #     mindeg = min(H.degree_sequence()) 
+    #     log.info("Computing {}-core of host graph".format(mindeg))
+    #     G = G.compute_core(mindeg)
+    #     log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
+
+    # log.info("Computing {}-wcol sets".format(len(H)-1))
+    # LG, mapping = G.to_lgraph()
+    # LG.compute_wr(len(H)-1)
+    # log.info("Done.")
+
+    seen = set()
+    for order in permutations(H):
+        tdH = TD.decompose(H, order)
+        if tdH in seen:
+            continue
+        seen.add(tdH)
+
+        print("\nOrder:", ''.join(map(str,order)))
+        print(H.to_lgraph(order)[0])
+        
+        print(tdH.order_string())
+        print(tdH)
+    print("\n")
+    print("Computed {} tree decompositions".format(len(seen)))
