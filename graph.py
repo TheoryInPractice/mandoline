@@ -82,6 +82,9 @@ class Graph:
             res.add_edge(u,v)
         return res
 
+    def copy(self):
+        return Graph.from_graph(self)
+
     def __contains__(self, u):
         return u in self.nodes
 

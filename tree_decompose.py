@@ -9,7 +9,7 @@ import sys
 
 from collections import defaultdict
 from sortedcontainers import SortedSet
-from itertools import permutations
+from itertools import permutations, product, chain
 import bisect
 import math, random
 import cairo
@@ -27,7 +27,7 @@ class TD:
     @staticmethod
     def decompose(G, order):
         assert(G.is_connected())
-       
+        assert set(G) == set(order), "Order {} is not incompatible with vertices {}".format(order, list(G)) 
         return TD._decompose_rec(G, G, order, [])
 
     @staticmethod
@@ -50,27 +50,47 @@ class TD:
         children = []
         for CC in R.connected_components():
             children.append(TD._decompose_rec(G, CC, order, tuple(sep)))
-        children.sort(key=lambda c: c.bag)
 
         res = TD(sep, in_neighbours, children, depth)
         return res
 
     def __init__(self, sep, in_neighbours, children, depth):
         self.parent = None
-        self.sep = tuple(sep)
-        self.bag = tuple(sep[depth:])
+        self._sep = tuple(sep)
+        self._bag = tuple(sep[depth:])
         self.in_neighbours = tuple(in_neighbours)
         self.depth = depth
-        self.children = tuple(children)
+        self.children = tuple(sorted(children, key=lambda c: c.in_neighbours))
         for c in self.children:
             c.parent = self
+
+    def nodes(self):
+        res = set(self._sep) 
+        for c in self.children:
+            res |= c.nodes()
+        return res
+
+    def prefix(self):
+        return tuple(self._sep[:self.depth])
+
+    def orders(self):
+        res = tuple(self._bag)
+        if len(self.children) == 0:
+            yield res
+            return
+
+        child_orders = [list(c.orders()) for c in self.children]
+
+        for perm in permutations(child_orders):
+            for prod in product(*perm):
+                yield res + tuple(chain(*prod))
 
     def copy(self):
         copy_children = []
         for c in self.children:
             copy_children.append(c.copy())
 
-        res = TD(self.sep, self.in_neighbours, copy_children, self.depth)
+        res = TD(self._sep, self.in_neighbours, copy_children, self.depth)
         for c in res.children:
             assert(c.parent == res)
         return res
@@ -99,28 +119,65 @@ class TD:
 
         return True
 
+    def adhesion_size(self):
+        return len(self.in_neighbours)
+
     def split(self):
+        if len(self.children) == 0:
+            yield self.copy() 
+            return
+
         for c in self.children:
             res = c.copy()
             res.in_neighbours = self.in_neighbours + res.in_neighbours
-            res.sep = self.sep + res.sep
             res.depth = self.depth
-            res.bag = res.sep[res.depth:]
+            res._bag = res._sep[res.depth:]
             res.parent = self.parent
 
             yield res
 
+    def chop(self, size):
+        assert size >= 1 and size <= len(self.in_neighbours)
+
+        child = self.copy()
+
+        if size == len(self.in_neighbours):
+            return child
+
+        in_neighbours = self.in_neighbours[:size]
+        sep = self._sep[:size]
+
+        child.depth += size
+        child._bag = child._sep[child.depth:]
+        child.in_neighbours = child.in_neighbours[size:]
+
+        return TD(sep, in_neighbours, [child], self.depth)
+
+    def merge(self, other, merge_depth):
+        assert(self.depth == other.depth)
+        assert(self.in_neighbours[:merge_depth] == other.in_neighbours[:merge_depth])
+
+        left = self.chop(merge_depth)
+        right = other.chop(merge_depth)
+
+        res = TD(left._sep, left.in_neighbours, left.children + right.children, left.depth)
+
+        return res
+
     def __repr__(self):
+        return self.order_string()
+
+    def td_string(self):
         if len(self.children) == 0:
             return ','.join(map(lambda N: short_str(N), self.in_neighbours))
         else:
-            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + '|'.join(map(str, self.children)) + '}'       
+            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
 
     def order_string(self):
         if len(self.children) == 0:
-            return ''.join(map(str, self.bag))
+            return ''.join(map(str, self._bag))
         else:
-            return ''.join(map(str, self.bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
+            return ''.join(map(str, self._bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')
@@ -161,8 +218,30 @@ if __name__ == "__main__":
 
         print("\nOrder:", ''.join(map(str,order)))
         print(H.to_lgraph(order)[0])
-        
         print(tdH.order_string())
-        print(tdH)
+
+        print("Decomposition", tdH)
+
+        print("Represented orders:")
+        for o in tdH.orders():
+            print(" ", ''.join(map(str,o)))
+
+        splits = list(tdH.split())
+        if len(splits) == 0:
+            continue
+
+        print("Splits:")
+        for td in splits:
+            print("  ", td)
+
+        merge_depth = len(tdH._bag)
+        print("Merging back at depth {}:".format(merge_depth))
+        merged = splits[0]
+        print("  ", merged)
+        for td in splits[1:]:
+            merged = merged.merge(td, merge_depth)
+            print("  ", merged)
+        assert(merged == tdH)
+
     print("\n")
     print("Computed {} tree decompositions".format(len(seen)))
