@@ -52,18 +52,28 @@ class TD:
             children.append(TD._decompose_rec(G, CC, order, tuple(sep)))
         children.sort(key=lambda c: c.bag)
 
-        res = TD(tuple(sep), in_neighbours, children, depth)
+        res = TD(sep, in_neighbours, children, depth)
         return res
 
     def __init__(self, sep, in_neighbours, children, depth):
         self.parent = None
-        self.sep = sep
-        self.bag = sep[depth:]
-        self.in_neighbours = in_neighbours
+        self.sep = tuple(sep)
+        self.bag = tuple(sep[depth:])
+        self.in_neighbours = tuple(in_neighbours)
         self.depth = depth
-        self.children = children
+        self.children = tuple(children)
         for c in self.children:
             c.parent = self
+
+    def copy(self):
+        copy_children = []
+        for c in self.children:
+            copy_children.append(c.copy())
+
+        res = TD(self.sep, self.in_neighbours, copy_children, self.depth)
+        for c in res.children:
+            assert(c.parent == res)
+        return res
 
     def __hash__(self):
         res = 219787954134**(self.depth+1)
@@ -89,11 +99,22 @@ class TD:
 
         return True
 
+    def split(self):
+        for c in self.children:
+            res = c.copy()
+            res.in_neighbours = self.in_neighbours + res.in_neighbours
+            res.sep = self.sep + res.sep
+            res.depth = self.depth
+            res.bag = res.sep[res.depth:]
+            res.parent = self.parent
+
+            yield res
+
     def __repr__(self):
         if len(self.children) == 0:
             return ','.join(map(lambda N: short_str(N), self.in_neighbours))
         else:
-            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + ','.join(map(str, self.children)) + '}'       
+            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + '|'.join(map(str, self.children)) + '}'       
 
     def order_string(self):
         if len(self.children) == 0:

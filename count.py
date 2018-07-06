@@ -14,86 +14,11 @@ import bisect
 import math, random
 import cairo
 
+from tree_decompose import TD
+
 import logging
 
 log = logging.getLogger("mandoline")
-
-class TD:
-    @staticmethod
-    def decompose(G, order):
-        assert(G.is_connected())
-       
-        return TD._decompose_rec(G, G, order, [])
-
-    @staticmethod
-    def _decompose_rec(G, subG, order, sep):
-        depth = len(sep)
-        R = Graph.from_graph(subG)
-        in_neighbours = []
-        for v in order:
-            if v not in R:
-                continue
-
-            Nv = sorted([sep.index(u) for u in G.neighbours(v) if u in sep])
-            in_neighbours.append(Nv)
-            sep.append(v)
-            R.remove_node(v)
-            if not R.is_connected():
-                break        
-
-        children = []
-        for CC in R.connected_components():
-            children.append(TD._decompose_rec(G, CC, order, list(sep)))
-        children.sort(key=lambda c: c.bag)
-
-        res = TD(list(sep), in_neighbours, children, depth)
-        return res
-
-    def __init__(self, sep, in_neighbours, children, depth):
-        self.parent = None
-        self.sep = sep
-        self.bag = sep[depth:]
-        self.in_neighbours = in_neighbours
-        self.depth = depth
-        self.children = children
-        for c in self.children:
-            c.parent = self
-
-    def __hash__(self):
-        res = 219787954134**(self.depth+1)
-        for N in self.in_neighbours:
-            res += hash(tuple(N))
-        for c in self.children:
-            res += hash(c)
-        return res
-
-    def __eq__(self, other):
-        if other == None:
-            return False
-
-        if self.depth != other.depth or len(self.children) != len(other.children):
-            return False
-
-        if self.in_neighbours != other.in_neighbours:
-            return False
-
-        for child, other_child in zip(self.children, other.children):
-            if child != other_child:
-                return False
-
-        return True
-
-    def __repr__(self):
-        if len(self.children) == 0:
-            return ''.join(map(str, self.in_neighbours))
-        else:
-            return ''.join(map(str, self.in_neighbours)) + '{' + ','.join(map(str, self.children)) + '}'       
-
-    def order_string(self):
-        if len(self.children) == 0:
-            return ''.join(map(str, self.bag))
-        else:
-            return ''.join(map(str, self.bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts H in G')
@@ -151,7 +76,10 @@ if __name__ == "__main__":
         print("\nOrder:", ''.join(map(str,order)))
         print(H.to_lgraph(order)[0])
         
-        print(tdH.order_string())
-        print(tdH)
+        print("Decomposition", tdH)
+        print("Splits:")
+        for td in tdH.split():
+            print("  ", td)
+
     print("\n")
     print("Computed {} tree decompositions".format(len(seen)))
