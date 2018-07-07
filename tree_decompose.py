@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
+from graph import Graph, load_graph, short_str
 from pattern import PatternBuilder, Pattern
 
 import argparse
@@ -17,11 +17,6 @@ import cairo
 import logging
 
 log = logging.getLogger("mandoline")
-
-def short_str(l):
-    if len(l) == 0:
-        return '.'
-    return ''.join(map(str,l))
 
 class TD:
     @staticmethod
@@ -232,7 +227,7 @@ if __name__ == "__main__":
 
         print("Splits:")
         for td in splits:
-            print("  ", td)
+            print("  ", td, td.nodes())
 
         merge_depth = len(tdH._bag)
         print("Merging back at depth {}:".format(merge_depth))
