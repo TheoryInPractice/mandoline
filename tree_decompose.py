@@ -12,7 +12,6 @@ from sortedcontainers import SortedSet
 from itertools import permutations, product, chain
 import bisect
 import math, random
-import cairo
 
 import logging
 
@@ -26,7 +25,7 @@ def short_str(l):
 class TD:
     @staticmethod
     def decompose(G, order):
-        assert(G.is_connected())
+        # assert(G.is_connected())
         assert set(G) == set(order), "Order {} is not incompatible with vertices {}".format(order, list(G)) 
         return TD._decompose_rec(G, G, order, [])
 
@@ -122,10 +121,22 @@ class TD:
     def adhesion_size(self):
         return len(self.in_neighbours)
 
+
+    def is_linear(self):
+        assert(len(self.children) != 1)
+        return len(self.children) == 0
+
     def split(self):
+        """
+            Splits the current decomposition along the common prefix
+            of its children: we return every child-decomposition with
+            the common root prefix attached to it.
+        """
         if len(self.children) == 0:
             yield self.copy() 
             return
+
+        assert(len(self.children) != 1)
 
         for c in self.children:
             res = c.copy()
@@ -161,6 +172,7 @@ class TD:
         right = other.chop(merge_depth)
 
         res = TD(left._sep, left.in_neighbours, left.children + right.children, left.depth)
+        assert(len(res.children) != 1)
 
         return res
 
@@ -221,6 +233,7 @@ if __name__ == "__main__":
         print(tdH.order_string())
 
         print("Decomposition", tdH)
+        print("Graph", tdH.td_string())
 
         print("Represented orders:")
         for o in tdH.orders():
