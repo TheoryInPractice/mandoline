@@ -27,28 +27,21 @@ class Recorder:
 
     def count_linear(self, td):
         assert(td.is_linear())
-        if td in self.pieces:
-            print("SEEN Piece", td.td_string())
-        else:
-            print("NEW Piece", td.td_string())
+        if td not in self.pieces:
+            log.info("Found new piece %s", td.td_string())
             self.pieces.add(td)
 
     def count_recursive(self, td):
         assert(not td.is_linear())
         if td in self.decomps:
-            print("SEEN Decomp", td.td_string())
             return True
-        else:
-            print("NEW Decomp", td.td_string())
-            self.decomps.add(td)
-            return False
+
+        log.info("Found new decomp %s", td.td_string())
+        self.decomps.add(td)
+        return False
 
     def report(self):
-        print("Recorded {} linear pieces and {} decompositions.".format(len(self.pieces), len(self.decomps)))
-
-        pieces_str = sorted(map(lambda p: p.td_string(), self.pieces))
-        for p in pieces_str:
-            print(p)
+        log.info("Recorded %d linear pieces and %d decompositions.", len(self.pieces), len(self.decomps))
 
 def powerset_nonempty(iterable):
     s = list(iterable)
@@ -62,13 +55,12 @@ def simulate_count(R, H, td):
 
 def _simulate_count_rec(R, H, td, depth):
     prefix = " "*(4*depth)
-    # print(prefix+"We want to count", td, " for graph", list(H.edges()))
-    print(prefix+"We want to count", td.td_string(), "(", td, ")")
+    log.debug("%sWe want to count %s (%s)", prefix, td.td_string(), str(td))
 
     split_depth = td.adhesion_size()
     splits = list(td.split())
     if len(splits) == 1:
-        print(prefix+"This decomposition is linear, we simply count it!")
+        log.debug("%sThis decomposition is linear, we simply count it!", prefix)
         R.count_linear(td)
         return
 
@@ -76,23 +68,23 @@ def _simulate_count_rec(R, H, td, depth):
     if already_known:
         return
 
-    print(prefix+"The decomposition branches at depth", split_depth)
+    log.debug("%sThe decomposition branches at depth %d", prefix, split_depth)
 
     order_prefix = td._sep[:split_depth]
     current = splits[0]
-    print(prefix+"We first count the leftmost piece", current)
+    log.debug("%sWe first count the leftmost piece %s", prefix, current)
     _simulate_count_rec(R, H, current, depth+1)
 
-    print(prefix+"Now we fold-count with the remaining pieces.")
+    log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
     orders = list(td.orders())
 
     for td_next in splits[1:]:
-        print(prefix+"The next piece is", td_next, "and we first count it.")
+        log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
         _simulate_count_rec(R, H, td_next, depth+1)
         previous = current
         current = current.merge(td_next, split_depth)
-        print(prefix+"The initial count of", current, "is the count of", previous, "times the count of", td_next)   
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, current, previous, td_next)   
 
         old_nodes = previous.nodes()
         new_nodes = td_next.nodes()
@@ -101,10 +93,10 @@ def _simulate_count_rec(R, H, td, depth):
         new_nodes -= common_nodes
         joint_nodes = old_nodes | new_nodes | set(td._sep)
 
-        print(prefix+"To account for non-induced instance, edges between", old_nodes, "and", new_nodes, "need to be considered" ) 
+        log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
         potential_edges = list(product(old_nodes, new_nodes))
 
-        print(prefix+"We subtract the results of the following counts:")
+        log.debug("%sWe subtract the results of the following counts:")
         seen = set()
         for oo in orders:
             o = suborder(oo, joint_nodes)
@@ -114,7 +106,7 @@ def _simulate_count_rec(R, H, td, depth):
                 for u,v in edges:
                     assert u in HH and v in HH
                     HH.add_edge(u,v)
-                print(prefix+"Decompositing",list(HH.edges()),"along order", o)                    
+                log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
                 tdHH = TD.decompose(HH, o)
                 if tdHH in seen:
                     continue
@@ -173,17 +165,17 @@ if __name__ == "__main__":
         if tdH in seen:
             continue
 
-        print("The decomposition {} represents the following orders:".format(tdH.order_string()))
+        log.info("The decomposition %s represents the following orders:", tdH.order_string())
         for o in tdH.orders():
-            print("  ", short_str(o))
+            log.info("  " + short_str(o))
 
         seen.add(tdH)
-        print()
+        log.info("")
 
         simulate_count(R, H, tdH)
-        print()
+        log.info("")
 
-    print("\n")
-    print("Computed {} tree decompositions".format(len(seen)))
+    log.info("\n")
+    log.info("Computed %d tree decompositions", len(seen))
 
     R.report()
