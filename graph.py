@@ -15,6 +15,12 @@ import logging
 
 log = logging.getLogger("mandoline")
 
+def short_str(l):
+    l = list(l)
+    if len(l) == 0:
+        return '.'
+    return ''.join(map(str,l))
+
 class indexmap:
     def __init__(self, size):
         self.vertex_to_index = {}
@@ -93,6 +99,9 @@ class Graph:
 
     def __len__(self):
         return len(self.nodes)
+
+    def __repr__(self):
+        return short_str(sorted(self.nodes)) + "{" + ','.join(map(lambda e: '{}{}'.format(*e), self.edges())) + "}"
     
     def get_max_id(self):
         return max(self.nodes)
