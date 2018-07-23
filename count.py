@@ -22,22 +22,22 @@ log = logging.getLogger("mandoline")
 
 class Recorder:
     def __init__(self):
-        self.pieces = set()
-        self.decomps = set()
+        self.pieces = defaultdict(set)
+        self.decomps = defaultdict(set)
 
-    def count_linear(self, td):
+    def count_linear(self, td, adh_size):
         assert(td.is_linear())
         if td not in self.pieces:
             log.info("Found new piece %s", td.td_string())
-            self.pieces.add(td)
+        self.pieces[td].add(adh_size)
 
-    def count_recursive(self, td):
+    def count_recursive(self, td, adh_size):
         assert(not td.is_linear())
-        if td in self.decomps:
+        if td in self.decomps and adh_size in self.decomps[td]:
             return True
 
-        log.info("Found new decomp %s", td.td_string())
-        self.decomps.add(td)
+        self.decomps[td].add(adh_size)
+        log.info("Found new decomp/adh size combination %s, %s", td.td_string(), adh_size)
         return False
 
     def report(self):
@@ -51,20 +51,20 @@ def suborder(order, vertices):
     return list(filter(lambda s: s in vertices, order))
 
 def simulate_count(R, H, td):
-    _simulate_count_rec(R, H, td, 0)
+    _simulate_count_rec(R, 0, H, td, 0)
 
-def _simulate_count_rec(R, H, td, depth):
+def _simulate_count_rec(R, adh_size, H, td, depth):
     prefix = " "*(4*depth)
-    log.debug("%sWe want to count %s (%s)", prefix, td.td_string(), str(td))
+    log.debug("%sWe want to count %s (%s) for adhesion size %s", prefix, td.td_string(), str(td), adh_size)
 
     split_depth = td.adhesion_size()
     splits = list(td.split())
     if len(splits) == 1:
         log.debug("%sThis decomposition is linear, we simply count it!", prefix)
-        R.count_linear(td)
+        R.count_linear(td, adh_size)
         return
 
-    already_known = R.count_recursive(td)
+    already_known = R.count_recursive(td, adh_size)
     if already_known:
         return
 
@@ -73,7 +73,7 @@ def _simulate_count_rec(R, H, td, depth):
     order_prefix = td._sep[:split_depth]
     current = splits[0]
     log.debug("%sWe first count the leftmost piece %s", prefix, current)
-    _simulate_count_rec(R, H, current, depth+1)
+    _simulate_count_rec(R, split_depth, H, current, depth+1)
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
@@ -81,7 +81,7 @@ def _simulate_count_rec(R, H, td, depth):
 
     for td_next in splits[1:]:
         log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
-        _simulate_count_rec(R, H, td_next, depth+1)
+        _simulate_count_rec(R, split_depth, H, td_next, depth+1)
         previous = current
         current = current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, current, previous, td_next)   
@@ -110,7 +110,7 @@ def _simulate_count_rec(R, H, td, depth):
                 tdHH = TD.decompose(HH, o)
                 if tdHH in seen:
                     continue
-                _simulate_count_rec(R, HH, tdHH, depth+1)
+                _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts H in G')
