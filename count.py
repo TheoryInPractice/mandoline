@@ -48,7 +48,7 @@ def powerset_nonempty(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
 def suborder(order, vertices):
-    return list(filter(lambda s: s in vertices, order))
+    return tuple(filter(lambda s: s in vertices, order))
 
 def simulate_count(R, H, td):
     _simulate_count_rec(R, 0, H, td, 0)
@@ -91,22 +91,36 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 
-def enumerate_defects(H, orders, separator, td_previous, td_next, depth):
+def enumerate_defects(H, orders, separator, decompA, decompB, depth):
+    """
+        Enumerates all possible graphs with td decompositions that contain
+        induced subgraph that decompose into decompA, decompB (with the joint
+        separator 'separator').
+    """
     prefix = " "*(4*depth)
-    old_nodes = td_previous.nodes()
-    new_nodes = td_next.nodes()
+    old_nodes = decompA.nodes()
+    new_nodes = decompB.nodes()
     common_nodes = old_nodes & new_nodes
     old_nodes -= common_nodes
     new_nodes -= common_nodes
     joint_nodes = old_nodes | new_nodes | separator
+
+    # TODO: enumerate _overlaps_
 
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
     potential_edges = list(product(old_nodes, new_nodes))
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen = set()
+    seen_order = set() 
     for oo in orders:
+        # Since we are constructing suborders, some might
+        # appear twice.
         o = suborder(oo, joint_nodes)
+        if o in seen_order:
+            continue
+        seen_order.add(o)
+
         for edges in powerset_nonempty(potential_edges):
             assert len(o) > 0
             HH = H.subgraph(joint_nodes)
