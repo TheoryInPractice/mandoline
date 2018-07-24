@@ -87,34 +87,37 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        old_nodes = td_previous.nodes()
-        new_nodes = td_next.nodes()
-        common_nodes = old_nodes & new_nodes
-        old_nodes -= common_nodes
-        new_nodes -= common_nodes
-        joint_nodes = old_nodes | new_nodes | separator
+        for (HH, tdHH) in enumerate_defects(H, orders, separator, td_previous, td_next, depth):
+            _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
-        log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
-        potential_edges = list(product(old_nodes, new_nodes))
 
-        log.debug("%sWe subtract the results of the following counts:")
-        seen = set()
-        for oo in orders:
-            o = suborder(oo, joint_nodes)
-            for edges in powerset_nonempty(potential_edges):
-                assert len(o) > 0
-                HH = H.subgraph(joint_nodes)
-                for u,v in edges:
-                    assert u in HH and v in HH
-                    HH.add_edge(u,v)
-                log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
-                tdHH = TD.decompose(HH, o)
-                if tdHH in seen:
-                    continue
-                _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
+def enumerate_defects(H, orders, separator, td_previous, td_next, depth):
+    prefix = " "*(4*depth)
+    old_nodes = td_previous.nodes()
+    new_nodes = td_next.nodes()
+    common_nodes = old_nodes & new_nodes
+    old_nodes -= common_nodes
+    new_nodes -= common_nodes
+    joint_nodes = old_nodes | new_nodes | separator
 
-def enumerate_defects():
-    pass
+    log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
+    potential_edges = list(product(old_nodes, new_nodes))
+
+    log.debug("%sWe subtract the results of the following counts:", prefix)
+    seen = set()
+    for oo in orders:
+        o = suborder(oo, joint_nodes)
+        for edges in powerset_nonempty(potential_edges):
+            assert len(o) > 0
+            HH = H.subgraph(joint_nodes)
+            for u,v in edges:
+                assert u in HH and v in HH
+                HH.add_edge(u,v)
+            log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
+            tdHH = TD.decompose(HH, o)
+            if tdHH in seen:
+                continue
+            yield (HH, tdHH)
 
 
 if __name__ == "__main__":
