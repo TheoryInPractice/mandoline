@@ -71,27 +71,28 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
     log.debug("%sThe decomposition branches at depth %d", prefix, split_depth)
 
     order_prefix = td._sep[:split_depth]
-    current = splits[0]
-    log.debug("%sWe first count the leftmost piece %s", prefix, current)
-    _simulate_count_rec(R, split_depth, H, current, depth+1)
+    td_current = splits[0]
+    log.debug("%sWe first count the leftmost piece %s", prefix, td_current)
+    _simulate_count_rec(R, split_depth, H, td_current, depth+1)
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
     orders = list(td.orders())
+    separator = frozenset(td._sep)
 
     for td_next in splits[1:]:
         log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
         _simulate_count_rec(R, split_depth, H, td_next, depth+1)
-        previous = current
-        current = current.merge(td_next, split_depth)
-        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, current, previous, td_next)   
+        td_previous = td_current
+        td_current = td_current.merge(td_next, split_depth)
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        old_nodes = previous.nodes()
+        old_nodes = td_previous.nodes()
         new_nodes = td_next.nodes()
         common_nodes = old_nodes & new_nodes
         old_nodes -= common_nodes
         new_nodes -= common_nodes
-        joint_nodes = old_nodes | new_nodes | set(td._sep)
+        joint_nodes = old_nodes | new_nodes | separator
 
         log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
         potential_edges = list(product(old_nodes, new_nodes))
@@ -111,6 +112,10 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
                 if tdHH in seen:
                     continue
                 _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
+
+def enumerate_defects():
+    pass
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts H in G')
