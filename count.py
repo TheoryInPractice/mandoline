@@ -123,9 +123,7 @@ def enumerate_defects(H, tdH, separator, decompA, decompB, depth):
         for edges in powerset_nonempty(potential_edges):
             assert len(o) > 0
             HH = H.subgraph(joint_nodes)
-            for u,v in edges:
-                assert u in HH and v in HH
-                HH.add_edge(u,v)
+            HH.add_edges(edges)
             log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
             tdHH = TD.decompose(HH, o)
             if tdHH in seen_decomp:

@@ -132,6 +132,10 @@ class Graph:
         self.adj[u].add(v)
         self.adj[v].add(u)
 
+    def add_edges(self, edges):
+        for u,v in edges:
+            self.add_edge(u,v)
+
     def remove_edge(self,u,v):
         self.adj[u].discard(v)
         self.adj[v].discard(u)
