@@ -77,7 +77,6 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
-    orders = list(td.orders())
     separator = frozenset(td._sep)
 
     for td_next in splits[1:]:
@@ -87,11 +86,11 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        for (HH, tdHH) in enumerate_defects(H, orders, separator, td_previous, td_next, depth):
+        for (HH, tdHH) in enumerate_defects(H, td, separator, td_previous, td_next, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 
-def enumerate_defects(H, orders, separator, decompA, decompB, depth):
+def enumerate_defects(H, tdH, separator, decompA, decompB, depth):
     """
         Enumerates all possible graphs with td decompositions that contain
         induced subgraph that decompose into decompA, decompB (with the joint
@@ -111,9 +110,9 @@ def enumerate_defects(H, orders, separator, decompA, decompB, depth):
     potential_edges = list(product(old_nodes, new_nodes))
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
-    seen = set()
+    seen_decomp = set()
     seen_order = set() 
-    for oo in orders:
+    for oo in tdH.orders():
         # Since we are constructing suborders, some might
         # appear twice.
         o = suborder(oo, joint_nodes)
@@ -129,8 +128,9 @@ def enumerate_defects(H, orders, separator, decompA, decompB, depth):
                 HH.add_edge(u,v)
             log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
             tdHH = TD.decompose(HH, o)
-            if tdHH in seen:
+            if tdHH in seen_decomp:
                 continue
+            seen_decomp.add(tdHH)
             yield (HH, tdHH)
 
 
