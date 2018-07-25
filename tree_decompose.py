@@ -107,8 +107,46 @@ class TD:
             res |= c.nodes()
         return res
 
+    def descendants(self):
+        res = set(self._bag)
+        for c in self.children:
+            res |= c.descendants()
+        return res
+
     def prefix(self):
         return tuple(self._sep[:self.depth])
+
+    def compatible_with(self, order, level=0):
+        prefix = "  "*level
+        # print("{}Testing {} in {}".format(prefix, order, self))
+        order = suborder(order, self.descendants())
+        # print("{}Restricted to {}".format(prefix, order))
+
+        if len(order) == 0:
+            return True
+
+        # Match nodes in current bag
+        for x in self._bag:
+            if len(order) == 0:
+                return True
+            if x == order[0]:
+                order = order[1:]
+
+        # print("{}Matched all but {}".format(prefix, order))
+
+        if len(set(order) & set(self._bag)) != 0:
+            # Could not match a vertex from the current bag,
+            # so order is incompatible.
+            return False
+
+        if len(order) == 0:
+            return True
+
+        # Order must be compatbile with _all_ children
+        for c in self.children:
+            if not c.compatible_with(order, level=level+1):
+                return False
+        return True
 
     def orders(self):
         res = tuple(self._bag)

@@ -74,8 +74,6 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
-    separator = frozenset(td._sep)
-
     for td_next in splits[1:]:
         log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
         _simulate_count_rec(R, split_depth, H, td_next, depth+1)
@@ -83,28 +81,41 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        for (HH, tdHH) in enumerate_defects(H, td, separator, td_previous, td_next, depth):
+        for (HH, tdHH) in enumerate_defects(H, td,  td_previous, td_next, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
+def td_overlap(decompA, decompB):
+    separator = set(decompA._sep) & set(decompB._sep)
+    nodesA = decompA.nodes()
+    nodesB = decompB.nodes()
+    common_nodes = nodesA & nodesB
+    nodesA -= common_nodes
+    nodesB -= common_nodes
+    joint = nodesA | nodesB | separator
+    return (nodesA, nodesB, joint)
 
-def enumerate_defects(H, tdH, separator, decompA, decompB, depth):
+def enumerate_overlaps(decompA, decompB):
+    """
+        Enumerate partial homomorphisms between
+        the the two decompositions.
+    """
+    nodesA, nodesB, joint_nodes = td_overlap(decompA, decompB)
+    
+
+def enumerate_defects(H, tdH, decompA, decompB, depth):
     """
         Enumerates all possible graphs with td decompositions that contain
         induced subgraph that decompose into decompA, decompB (with the joint
         separator 'separator').
     """
     prefix = " "*(4*depth)
-    old_nodes = decompA.nodes()
-    new_nodes = decompB.nodes()
-    common_nodes = old_nodes & new_nodes
-    old_nodes -= common_nodes
-    new_nodes -= common_nodes
-    joint_nodes = old_nodes | new_nodes | separator
+
+    nodesA, nodesB, joint_nodes = td_overlap(decompA, decompB)
 
     # TODO: enumerate _overlaps_
 
-    log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, old_nodes, new_nodes ) 
-    potential_edges = list(product(old_nodes, new_nodes))
+    log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
+    potential_edges = list(product(nodesA, nodesB))
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen_decomp = set()
