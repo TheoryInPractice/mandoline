@@ -47,9 +47,6 @@ def powerset_nonempty(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
-def suborder(order, vertices):
-    return tuple(filter(lambda s: s in vertices, order))
-
 def simulate_count(R, H, td):
     _simulate_count_rec(R, 0, H, td, 0)
 
@@ -111,15 +108,7 @@ def enumerate_defects(H, tdH, separator, decompA, decompB, depth):
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen_decomp = set()
-    seen_order = set() 
-    for oo in tdH.orders():
-        # Since we are constructing suborders, some might
-        # appear twice.
-        o = suborder(oo, joint_nodes)
-        if o in seen_order:
-            continue
-        seen_order.add(o)
-
+    for o in tdH.suborders(joint_nodes):
         for edges in powerset_nonempty(potential_edges):
             assert len(o) > 0
             HH = H.subgraph(joint_nodes)

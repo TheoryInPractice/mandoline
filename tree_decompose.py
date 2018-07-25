@@ -17,6 +17,8 @@ import logging
 
 log = logging.getLogger("mandoline")
 
+def suborder(order, vertices):
+    return tuple(filter(lambda s: s in vertices, order))
 
 def enumerate_splits(seq):
     """
@@ -115,6 +117,24 @@ class TD:
             return
 
         child_orders = [list(c.orders()) for c in self.children]
+        for prod in product(*child_orders):
+            for laced in interlace_multiple(*prod):
+                yield res + tuple(laced)
+
+    def suborders(self, vertices):
+        vertices = set(vertices)
+        for o in self._suborders(vertices):
+            yield o
+
+    def _suborders(self, vertices):
+        res = tuple(suborder(self._bag, vertices))
+        if len(self.children) == 0:
+            yield res
+            return
+
+        child_orders = [list(c._suborders(vertices)) for c in self.children]
+        child_orders = [o for o in child_orders if len(o) > 0]
+
         for prod in product(*child_orders):
             for laced in interlace_multiple(*prod):
                 yield res + tuple(laced)
