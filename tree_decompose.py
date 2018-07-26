@@ -20,45 +20,6 @@ log = logging.getLogger("mandoline")
 def suborder(order, vertices):
     return tuple(filter(lambda s: s in vertices, order))
 
-def enumerate_splits(seq):
-    """
-        Returns all ways the input sequence
-        can be split into two parits (including, ([],seq) and (seq,[])).
-    """
-    seq = list(seq)
-    for i in range(len(seq)+1):
-        yield (seq[:i], seq[i:])
-
-def interlace(seqA, seqB):
-    """
-        Returns all interlacements of two sequences.
-        Assumes that the elements of both sequences are distinct,
-        otherwise interlacements will repeat.
-    """
-    if len(seqA) == 0:
-        yield seqB
-        return
-
-    s = seqA[0]
-    for leftB, rightB in enumerate_splits(seqB):
-        for laced in interlace(seqA[1:], rightB):
-            yield leftB + [s] + laced
-
-
-def interlace_multiple(*seqs):
-    """
-        Returns all interlacements of several sequences.
-        Assumes that the elements of the sequences are distinct,
-        otherwise interlacements will repeat.       
-    """
-    if len(seqs) == 2:
-        for laced in interlace(seqs[0], seqs[1]):
-            yield laced
-        return
-
-    for laced in interlace_multiple(*seqs[1:]):
-        for res in interlace(seqs[0], laced):
-            yield res
 
 class TD:
     @staticmethod
@@ -165,33 +126,12 @@ class TD:
         return res
 
     def orders(self):
-        res = tuple(self._bag)
-        if len(self.children) == 0:
-            yield res
-            return
-
-        child_orders = [list(c.orders()) for c in self.children]
-        for prod in product(*child_orders):
-            for laced in interlace_multiple(*prod):
-                yield res + tuple(laced)
-
-    def suborders(self, vertices):
-        vertices = set(vertices)
-        for o in self._suborders(vertices):
+        for o in self.to_ditree().embeddings():
             yield o
 
-    def _suborders(self, vertices):
-        res = tuple(suborder(self._bag, vertices))
-        if len(self.children) == 0:
-            yield res
-            return
-
-        child_orders = [list(c._suborders(vertices)) for c in self.children]
-        child_orders = [o for o in child_orders if len(o) > 0]
-
-        for prod in product(*child_orders):
-            for laced in interlace_multiple(*prod):
-                yield res + tuple(laced)
+    def suborders(self, vertices):
+        for o in self.to_ditree().subembeddings(vertices):
+            yield o
 
     def copy(self):
         copy_children = []
