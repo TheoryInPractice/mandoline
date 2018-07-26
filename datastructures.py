@@ -66,5 +66,8 @@ class Indexmap:
     def indices_of(self, vertices):
         return [self.vertex_to_index[v] if v in self.vertex_to_index else None for v in vertices]
 
+    def vertices_at(self, indices):
+        return [self.index_to_vertex[i] for i in indices]
+
     def __repr__(self):
         return 'IM['+','.join(map(str,self.index_to_vertex))+']'        

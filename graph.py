@@ -431,6 +431,45 @@ class DiGraph:
 
         return H, imap
 
+    def topembeddings(self):
+        """
+        Varol-Rotem algorithm to enumerate all topological embeddings of a poset.
+        It takes as input the oriented arcs of a digraph.
+        Yaakov L. Varol and Doron Rotem, An Algorithm to Generate All Topological Sorting Arrangements.
+            Computer J., 24 (1981) pp. 83-84. row
+        Adapted from https://github.com/dbasden/python-digraphtools/blob/master/digraphtools/topsort.py.
+        """
+
+        H, imap = self.normalize()
+        n = len(H)
+        arcs = list(H.arcs())
+
+        # Compute (undirected) adjacency matrix. 
+        adj = [[False for j in range(n)]+[True] for i in range(n+1)]
+        for i,j in arcs:
+            assert i < j, "Not a DAG!"
+            adj[i][j] = True
+            adj[j][i] = True
+
+        # Enumerate topological embeddings
+        loc = list(range(n))
+        p = list(range(n+1))
+        yield imap.vertices_at(p[0:n])
+        i = 0
+        k = 0
+        while i < n-1:
+            k = loc[i]
+            kk = k + 1
+            if adj[i][p[kk]]:
+                p[i:k+1] = [p[k]]+p[i:k] # roll-right a[i:k+1]
+                loc[i] = i
+                i += 1
+            else:
+                p[k],p[kk] = p[kk],p[k]
+                loc[i] = kk
+                i = 0
+                yield imap.vertices_at(p[0:n])
+
 class LGraph:
     """
         A graph imbued with a linear order. Optimized
