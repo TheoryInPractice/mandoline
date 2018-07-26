@@ -446,13 +446,28 @@ class DiGraph:
 
         return H, imap
 
+    def subembeddings(self, selection):
+        """
+            Returns all orders (embeddings) of the vertex subset 'selection'
+            which appear as suborders in topological orderings of the whole
+            graph.
+        """
+        selection = set(selection)
+        H = self.copy()
+        remove = self.nodes - selection
+        for u in remove:
+            H.dissolve_node(u)
+
+        for emb in H.embeddings():
+            yield emb
+
     def embeddings(self):
         """
-        Varol-Rotem algorithm to enumerate all topological embeddings of a poset.
-        It takes as input the oriented arcs of a digraph.
-        Yaakov L. Varol and Doron Rotem, An Algorithm to Generate All Topological Sorting Arrangements.
-            Computer J., 24 (1981) pp. 83-84. row
-        Adapted from https://github.com/dbasden/python-digraphtools/blob/master/digraphtools/topsort.py.
+            Varol-Rotem algorithm to enumerate all topological embeddings of a poset.
+            It takes as input the oriented arcs of a digraph.
+            Yaakov L. Varol and Doron Rotem, An Algorithm to Generate All Topological Sorting Arrangements.
+                Computer J., 24 (1981) pp. 83-84. row
+            Adapted from https://github.com/dbasden/python-digraphtools/blob/master/digraphtools/topsort.py.
         """
 
         H, imap = self.normalize()
