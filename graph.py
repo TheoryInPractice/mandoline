@@ -5,6 +5,7 @@ from operator import itemgetter
 from itertools import chain, combinations, permutations
 
 from sortedcontainers import SortedSet
+from datastructures import indexmap
 
 import bisect
 import math
@@ -21,33 +22,6 @@ def short_str(l):
         return '.'
     return ''.join(map(str,l))
 
-class indexmap:
-    def __init__(self, size):
-        self.vertex_to_index = {}
-        self.index_to_vertex = [None] * size
-
-    def __len__(self):
-        return len(self.index_to_vertex)
-
-    def put(self, index, vertex):
-        if index >= len(self) or index < 0:
-            raise IndexError()
-        self.vertex_to_index[vertex] = index
-        self.index_to_vertex[index] = vertex
-
-    def vertex_at(self, index):
-        if index >= len(self) or index < 0 or self.index_to_vertex[index] == None:
-            raise IndexError()
-        return self.index_to_vertex[index]
-
-    def index_of(self, vertex):
-        return self.vertex_to_index[vertex]
-
-    def indices_of(self, vertices):
-        return [self.vertex_to_index[v] if v in self.vertex_to_index else None for v in vertices]
-
-    def __repr__(self):
-        return 'IM['+','.join(map(str,self.index_to_vertex))+']'
 
 def load_graph(filename):
     import os.path
@@ -322,6 +296,10 @@ class Graph:
         return res
 
 class LGraph:
+    """
+        A graph imbued with a linear order. Optimized
+        fro wcol computation.
+    """
     def __init__(self):
         self.wr = [[]]
         self.outN = [] 
