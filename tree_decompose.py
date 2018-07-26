@@ -56,9 +56,9 @@ class TD:
         self.parent = None
         self._sep = tuple(sep)
         self._bag = tuple(sep[depth:])
-        self.in_neighbours = tuple(in_neighbours)
+        self._in = tuple(in_neighbours)
         self.depth = depth
-        self.children = tuple(sorted(children, key=lambda c: c.in_neighbours))
+        self.children = tuple(sorted(children, key=lambda c: c._in))
         for c in self.children:
             c.parent = self
 
@@ -67,6 +67,20 @@ class TD:
         for c in self.children:
             res |= c.nodes()
         return res
+
+    def __iter__(self):
+        return iter(self.nodes())
+
+    def in_neighbours(self, u):
+        if u in self._bag:
+            i = self._bag.index(u)
+            return [self._sep[j] for j in self._in[i]]
+
+        for c in self.children:
+            res = c.in_neighbours(u)
+            if res != None:
+                return res
+        return None
 
     def descendants(self):
         res = set(self._bag)
@@ -138,14 +152,14 @@ class TD:
         for c in self.children:
             copy_children.append(c.copy())
 
-        res = TD(self._sep, self.in_neighbours, copy_children, self.depth)
+        res = TD(self._sep, self._in, copy_children, self.depth)
         for c in res.children:
             assert(c.parent == res)
         return res
 
     def __hash__(self):
         res = 219787954134**(self.depth+1)
-        for N in self.in_neighbours:
+        for N in self._in:
             res += hash(N)
         for c in self.children:
             res += hash(c)
@@ -158,7 +172,7 @@ class TD:
         if self.depth != other.depth or len(self.children) != len(other.children):
             return False
 
-        if self.in_neighbours != other.in_neighbours:
+        if self._in != other.in_neighbours:
             return False
 
         for child, other_child in zip(self.children, other.children):
@@ -168,7 +182,7 @@ class TD:
         return True
 
     def adhesion_size(self):
-        return len(self.in_neighbours)
+        return len(self._in)
 
 
     def is_linear(self):
@@ -189,7 +203,7 @@ class TD:
 
         for c in self.children:
             res = c.copy()
-            res.in_neighbours = self.in_neighbours + res.in_neighbours
+            res.in_neighbours = self._in + res.in_neighbours
             res.depth = self.depth
             res._bag = res._sep[res.depth:]
             res.parent = self.parent
@@ -197,14 +211,14 @@ class TD:
             yield res
 
     def chop(self, size):
-        assert size >= 1 and size <= len(self.in_neighbours)
+        assert size >= 1 and size <= len(self._in)
 
         child = self.copy()
 
-        if size == len(self.in_neighbours):
+        if size == len(self._in):
             return child
 
-        in_neighbours = self.in_neighbours[:size]
+        in_neighbours = self._in[:size]
         sep = self._sep[:size]
 
         child.depth += size
@@ -215,7 +229,7 @@ class TD:
 
     def merge(self, other, merge_depth):
         assert(self.depth == other.depth)
-        assert(self.in_neighbours[:merge_depth] == other.in_neighbours[:merge_depth])
+        assert(self._in[:merge_depth] == other.in_neighbours[:merge_depth])
 
         left = self.chop(merge_depth)
         right = other.chop(merge_depth)
@@ -230,9 +244,9 @@ class TD:
 
     def td_string(self):
         if len(self.children) == 0:
-            return ','.join(map(lambda N: short_str(N), self.in_neighbours))
+            return ','.join(map(lambda N: short_str(N), self._in))
         else:
-            return ','.join(map(lambda N: short_str(N), self.in_neighbours)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
+            return ','.join(map(lambda N: short_str(N), self._in)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
 
     def order_string(self):
         if len(self.children) == 0:

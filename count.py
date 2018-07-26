@@ -43,6 +43,10 @@ class Recorder:
     def report(self):
         log.info("Recorded %d linear pieces and %d decompositions.", len(self.pieces), len(self.decomps))
 
+def powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(0, len(s)+1))
+
 def powerset_nonempty(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
@@ -85,21 +89,29 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 def td_overlap(decompA, decompB):
-    separator = set(decompA._sep) & set(decompB._sep)
+    """
+        Computes three sets of nodes: nodes exclusive to decompA,
+        nodes exclusive to decompB and all nodes of the joint
+        decomposition (including their joint root-path).
+    """
+    root_path = set(decompA._sep) & set(decompB._sep)
     nodesA = decompA.nodes()
     nodesB = decompB.nodes()
     common_nodes = nodesA & nodesB
     nodesA -= common_nodes
     nodesB -= common_nodes
-    joint = nodesA | nodesB | separator
-    return (nodesA, nodesB, joint)
+    nodesAll = nodesA | nodesB | root_path
+    return (nodesA, nodesB, nodesAll)
 
 def enumerate_overlaps(decompA, decompB):
     """
         Enumerate partial homomorphisms between
         the the two decompositions.
     """
-    nodesA, nodesB, joint_nodes = td_overlap(decompA, decompB)
+    nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
+
+    for overlap in powerset(nodesA):
+        pass
     
 
 def enumerate_defects(H, tdH, decompA, decompB, depth):
@@ -110,7 +122,7 @@ def enumerate_defects(H, tdH, decompA, decompB, depth):
     """
     prefix = " "*(4*depth)
 
-    nodesA, nodesB, joint_nodes = td_overlap(decompA, decompB)
+    nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
 
     # TODO: enumerate _overlaps_
 
@@ -119,10 +131,10 @@ def enumerate_defects(H, tdH, decompA, decompB, depth):
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen_decomp = set()
-    for o in tdH.suborders(joint_nodes):
+    for o in tdH.suborders(nodesAll):
         for edges in powerset_nonempty(potential_edges):
             assert len(o) > 0
-            HH = H.subgraph(joint_nodes)
+            HH = H.subgraph(nodesAll)
             HH.add_edges(edges)
             log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
             tdHH = TD.decompose(HH, o)
