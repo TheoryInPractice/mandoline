@@ -3,7 +3,7 @@ import itertools
 from collections import defaultdict as defaultdict
 import gzip
 from operator import itemgetter
-from itertools import chain, combinations, permutations
+from itertools import chain, combinations, permutations, product
 
 from sortedcontainers import SortedSet
 from datastructures import Indexmap
@@ -313,7 +313,7 @@ class DiGraph:
         return res
 
     def copy(self):
-        return DiGraph.from_graph(self)
+        return DiGraph.from_digraph(self)
 
     def __contains__(self, u):
         return u in self.nodes
@@ -341,13 +341,28 @@ class DiGraph:
     def remove_node(self,u):
         if u not in self.nodes:
             return
-        for v in self.out(u):
+        for v in self.out[u]:
             self._in[v].remove(u)
-        for v in self._in(u):
+        for v in self._in[u]:
             self.out[v].remove(u)
         del self.out[u]
         del self._in[u]
         self.nodes.remove(u)
+
+    def dissolve_node(self,u):
+        """
+            Removes a node an connects all its
+            former in-neighbours to all its former
+            out-neighbours. 
+        """
+        if u not in self.nodes:
+            return
+        in_neighs = self.in_neighbours(u)
+        out_neighs = self.out_neighbours(u)
+        self.remove_node(u)
+
+        for v,w in product(in_neighs, out_neighs):
+            self.add_arc(v,w)
 
     def add_arc(self,u,v):
         self.nodes.add(u)

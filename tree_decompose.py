@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph, short_str
+from graph import Graph, DiGraph, load_graph, short_str
 from pattern import PatternBuilder, Pattern
 
 import argparse
@@ -147,6 +147,22 @@ class TD:
             if not c.compatible_with(order, level=level+1):
                 return False
         return True
+
+    def to_ditree(self):
+        """
+            Returns the tree underlying this decompositon
+            as a directed graph. Arcs are oriented _away_ from
+            the root, towards the leaves.
+        """
+        res = DiGraph()
+        for u,v in zip(self._bag[:-1], self._bag[1:]):
+            res.add_arc(u,v)
+
+        for c in self.children:
+            H = c.to_ditree()
+            res.add_arcs(H.arcs())
+            res.add_arc(self._bag[-1], c._bag[0])
+        return res
 
     def orders(self):
         res = tuple(self._bag)
