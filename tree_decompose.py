@@ -74,7 +74,7 @@ class TD:
     def in_neighbours(self, u):
         if u in self._bag:
             i = self._bag.index(u)
-            return [self._sep[j] for j in self._in[i]]
+            return set([self._sep[j] for j in self._in[i]])
 
         for c in self.children:
             res = c.in_neighbours(u)
@@ -172,7 +172,7 @@ class TD:
         if self.depth != other.depth or len(self.children) != len(other.children):
             return False
 
-        if self._in != other.in_neighbours:
+        if self._in != other._in:
             return False
 
         for child, other_child in zip(self.children, other.children):
@@ -203,7 +203,7 @@ class TD:
 
         for c in self.children:
             res = c.copy()
-            res.in_neighbours = self._in + res.in_neighbours
+            res._in = self._in + res._in
             res.depth = self.depth
             res._bag = res._sep[res.depth:]
             res.parent = self.parent
@@ -223,18 +223,18 @@ class TD:
 
         child.depth += size
         child._bag = child._sep[child.depth:]
-        child.in_neighbours = child.in_neighbours[size:]
+        child._in = child._in[size:]
 
         return TD(sep, in_neighbours, [child], self.depth)
 
     def merge(self, other, merge_depth):
         assert(self.depth == other.depth)
-        assert(self._in[:merge_depth] == other.in_neighbours[:merge_depth])
+        assert(self._in[:merge_depth] == other._in[:merge_depth])
 
         left = self.chop(merge_depth)
         right = other.chop(merge_depth)
 
-        res = TD(left._sep, left.in_neighbours, left.children + right.children, left.depth)
+        res = TD(left._sep, left._in, left.children + right.children, left.depth)
         assert(len(res.children) != 1)
 
         return res

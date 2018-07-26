@@ -108,8 +108,23 @@ def enumerate_overlaps(decompA, decompB):
         Enumerate partial homomorphisms between
         the the two decompositions.
     """
+    root_path = set(decompA._sep) & set(decompB._sep)
     nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
 
+    # Make a list of which nodes in nodesA can potentially be
+    # mapped onto nodes in nodesB. The first constraint enforced here
+    # is that the must have the same in-neighbourhood w.r.t the 
+    # (joint) root-path of the decomposition.
+    candidates = {}
+    for u in nodesA:
+        candidates[u] = set()
+        rp_neighboursA = decompA.in_neighbours(u) & root_path
+        for v in nodesB:
+            rp_neighboursB = decompB.in_neighbours(v) & root_path
+            if rp_neighboursA == rp_neighboursB:
+                candidates[u].add(v)
+
+    # Now try all subsets of nodesA, including the empty set
     for overlap in powerset(nodesA):
         pass
     
