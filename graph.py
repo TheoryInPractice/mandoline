@@ -6,7 +6,7 @@ from operator import itemgetter
 from itertools import chain, combinations, permutations
 
 from sortedcontainers import SortedSet
-from datastructures import indexmap
+from datastructures import Indexmap
 
 import bisect
 import math
@@ -175,7 +175,7 @@ class Graph:
     def to_lgraph(self, order=None):
         """
             Returns an ordered graph with node indices from 0 to n-1 and 
-            an indexmap to recover the original ids.
+            an Indexmap to recover the original ids.
             The nodes are sorted by (degree, label) in descending order
             in order to keep the wcol number small.
         """
@@ -186,7 +186,7 @@ class Graph:
             order.sort(reverse=True)
             order = [u for _,u in order]
 
-        mapping = indexmap(len(order))
+        mapping = Indexmap(len(order))
         for iu,u  in enumerate(order):
             iN = mapping.indices_of(self.neighbours(u))
             iN = [x for x in iN if x != None] # Remove 'None' values
@@ -213,21 +213,21 @@ class Graph:
     def enum_patterns(self):
         found = set()
         for order in permutations(sorted(self)):
-            pat, indexmap = self.to_pattern(order)
+            pat, Indexmap = self.to_pattern(order)
             if pat in found:
                 continue
             found.add(pat)
-            yield pat, indexmap
+            yield pat, Indexmap
 
     def to_pattern(self, order):
         from pattern import Pattern
         """
             Returns a `pattern' (and ordered graph with node indices from 0 to n-1)
-            and an indexmap to recover the original ids. 
+            and an Indexmap to recover the original ids. 
         """
         pat = LGraph()
 
-        mapping = indexmap(len(order))
+        mapping = Indexmap(len(order))
         for iu,u  in enumerate(order):
             iN = mapping.indices_of(self.neighbours(u))
             iN = [x for x in iN if x != None] # Remove 'None' values
@@ -383,7 +383,53 @@ class DiGraph:
         return len(self._in[u])       
 
     def degree(self, u):
-        return self._in_degree(u) + self.out_degree(u)   
+        return self.in_degree(u) + self.out_degree(u)   
+
+    def normalize(self):
+        """
+            Returns a digraph on vertices [0,n-1] and an Indexmap. Moreover,
+            if this digraph is a DAG, the vertices will be in a topological
+            order (sources first).
+        """
+        n = len(self)
+        imap = Indexmap(n)
+        in_degrees = dict((u,self.in_degree(u)) for u in self)
+        buckets = defaultdict(set)
+        for u, indeg in in_degrees.items():
+            buckets[indeg].add(u)
+
+        index = 0
+        while index < n:
+            # Find a lowest-degree vertex. 
+            d = 0
+            while len(buckets[d]) == 0:
+                d += 1
+
+            # 'Delete' v
+            v = buckets[d].pop()
+            del in_degrees[v]
+            imap.put(index, v)
+
+            # Update in-degrees of remaining vertices
+            for u in self.out_neighbours(v):
+                if u not in in_degrees:
+                    continue # Already processed
+                buckets[in_degrees[u]].remove(u)
+                in_degrees[u] -= 1
+                buckets[in_degrees[u]].add(u)
+
+            index += 1
+
+        # Construct resulting graph
+        H = DiGraph()
+        for iv in range(n):
+            H.add_node(iv)
+
+        for u,v in self.arcs():
+            iu, iv = imap.index_of(u), imap.index_of(v)
+            H.add_arc(iu, iv)
+
+        return H, imap
 
 class LGraph:
     """

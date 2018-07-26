@@ -37,7 +37,7 @@ class Bimap:
         return ','.join(map(str, self.items()))
 
 
-class indexmap:
+class Indexmap:
     """
         Maps a set of vertices (e.g. arbitrary, hashable objects)
         to indices [0,...,n-1].
