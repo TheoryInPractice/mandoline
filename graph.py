@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import itertools
 from collections import defaultdict as defaultdict
 import gzip
@@ -47,6 +48,7 @@ def load_graph(filename):
                 res.add_edge(u,v)
     res.remove_loops()
     return res
+
 
 class Graph:
     def __init__(self):
@@ -294,6 +296,94 @@ class Graph:
         for u,v in zip(range(n-1), range(1,n)):
             res.add_edge(u,v)
         return res
+
+class DiGraph:
+    def __init__(self):
+        self.out = defaultdict(set)
+        self._in = defaultdict(set)
+        self.nodes = set()
+
+    @staticmethod
+    def from_digraph(other):
+        res = DiGraph()
+        for v in other:
+            res.add_node(v)
+        for u,v in other.arcs():
+            res.add_arc(u,v)
+        return res
+
+    def copy(self):
+        return DiGraph.from_graph(self)
+
+    def __contains__(self, u):
+        return u in self.nodes
+
+    def __iter__(self):
+        return iter(self.nodes)
+
+    def __len__(self):
+        return len(self.nodes)
+
+    def __repr__(self):
+        return short_str(sorted(self.nodes)) + "{" + ','.join(map(lambda e: '{}{}'.format(*e), self.arcs())) + "}"
+    
+    def arcs(self):
+        for u in self:
+            for v in self.out[u]:
+                yield (u,v)
+
+    def num_arcs(self):
+        return sum(1 for _ in self.arcs())
+
+    def add_node(self,u):
+        self.nodes.add(u)
+
+    def remove_node(self,u):
+        if u not in self.nodes:
+            return
+        for v in self.out(u):
+            self._in[v].remove(u)
+        for v in self._in(u):
+            self.out[v].remove(u)
+        del self.out[u]
+        del self._in[u]
+        self.nodes.remove(u)
+
+    def add_arc(self,u,v):
+        self.nodes.add(u)
+        self.nodes.add(v)        
+        self.out[u].add(v)
+        self._in[v].add(u)
+
+    def add_arcs(self, arcs):
+        for u,v in arcs:
+            self.add_arc(u,v)
+
+    def remove_arc(self,u,v):
+        self.out[u].discard(v)
+        self._in[v].discard(u)
+
+    def remove_loops(self):
+        for v in self:
+            self.remove_arc(v,v)
+
+    def adjacent(self,u,v):
+        return v in self.out[u]
+
+    def out_neighbours(self,u):
+        return frozenset(self.out[u])
+
+    def in_neighbours(self,u):
+        return frozenset(self._in[u])
+
+    def out_degree(self, u):
+        return len(self.out[u])
+
+    def in_degree(self, u):
+        return len(self._in[u])       
+
+    def degree(self, u):
+        return self._in_degree(u) + self.out_degree(u)   
 
 class LGraph:
     """
@@ -600,6 +690,20 @@ class TestLGraphMethods(unittest.TestCase):
         for num, pattern in zip(num_pieces, patterns):
             pieces = pattern.decompose()
             self.assertEqual(len(pieces), num)
+
+class TestDiGraphMethods(unittest.TestCase):            
+    
+    def test_basics(self):
+        G = DiGraph()
+        G.add_arc(0,1)
+        G.add_arc(0,2)
+        G.add_arc(0,3)
+
+        self.assertEqual(set([1,2,3]), G.out_neighbours(0))
+        self.assertEqual(G.out_degree(0), 3)
+        self.assertEqual(G.in_degree(0), 0)
+        self.assertEqual(G.in_degree(1), 1)
+        self.assertEqual(G.out_degree(1), 0)
 
 if __name__ == '__main__':
     unittest.main()
