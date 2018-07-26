@@ -446,7 +446,7 @@ class DiGraph:
 
         return H, imap
 
-    def topembeddings(self):
+    def embeddings(self):
         """
         Varol-Rotem algorithm to enumerate all topological embeddings of a poset.
         It takes as input the oriented arcs of a digraph.
