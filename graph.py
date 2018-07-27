@@ -913,8 +913,6 @@ class TestGraphMethods(unittest.TestCase):
 
         self.assertEqual(hash(G), hash(H))
 
-
-
     def test_hashing_rnd(self):
         edges = []
         n = 100
@@ -933,6 +931,15 @@ class TestGraphMethods(unittest.TestCase):
             H.remove_edge(v,u)
             self.assertEqual(hash(G), hash(H))
 
+        sup_nodes = list(range(n+1, 2*n))
+        H.add_nodes(sup_nodes)
+
+        for _ in range(1000):
+            H.add_edge(random.randint(n+1, 2*n-1), random.randint(n+1, 2*n-1))
+        H = H.subgraph(range(n))
+
+        self.assertEqual(hash(G), hash(H))        
+
         for i in range(n):
             G.remove_node(i)
             H.remove_node(i)
@@ -950,18 +957,13 @@ class TestLGraphMethods(unittest.TestCase):
         LG, mapping = G.to_lgraph()
         self.assertEqual(len(G), len(LG))
 
-        print(LG)
-        print(mapping)
-
         for u,v in G.edges():
             iu, iv = mapping.index_of(u), mapping.index_of(v)
-            print((u,v), 'mapped to',(iu,iv))
             self.assertTrue(LG.adjacent(iu,iv))
 
 
         for iu,iv in LG.edges():
             u, v = mapping.vertex_at(iu), mapping.vertex_at(iv)
-            print((iu,iv), 'mapped to',(u,v))
             self.assertTrue(G.adjacent(u,v))
 
     def test_pattern_enum(self):
