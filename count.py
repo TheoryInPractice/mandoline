@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from graph import Graph, load_graph
+from datastructures import Bimap
 from pattern import PatternBuilder, Pattern
 
 import argparse
@@ -109,7 +110,16 @@ def enumerate_overlaps(decompA, decompB):
         the the two decompositions.
     """
     root_path = set(decompA._sep) & set(decompB._sep)
+    assert len(root_path) > 0 # Paranoia: decompositions must have common root-path.
     nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
+
+    decompJoint = decompA.merge(decompB, len(root_path))
+    print("{} + {} = {}".format(decompA, decompB, decompJoint))
+    dagJoint = decompJoint.to_ditree()
+    graphJoint = decompJoint.to_graph()
+    print("TD Tree",dagJoint)
+    print("Graph", graphJoint)
+    print()
 
     # Make a list of which nodes in nodesA can potentially be
     # mapped onto nodes in nodesB. The first constraint enforced here
@@ -124,10 +134,29 @@ def enumerate_overlaps(decompA, decompB):
             if rp_neighboursA == rp_neighboursB:
                 candidates[u].add(v)
 
+    print(candidates)
+
     # Now try all subsets of nodesA, including the empty set
-    for overlap in powerset(nodesA):
-        pass
-    
+    for sourceA in powerset(nodesA):
+        print("Attempting to map {}".format(sourceA))
+
+        candidate_sets = [candidates[x] for x in sourceA]
+        for targetB in product(*candidate_sets):
+            if len(set(targetB)) != len(targetB):
+                continue # Mapping must be onto
+
+            # TODO: check that induced subgraphs are the same
+            # (we know that edges towards root-path are good)
+
+            mapping = Bimap()
+            mapping.put_all(zip(sourceA, targetB))
+            print("{} -> {} = {}".format(sourceA, targetB, mapping))
+            
+            dag = dagJoint.copy()
+            dag.merge_pairs(mapping.items())
+            print("{} --{}--> {}".format(dagJoint, list(mapping.items()), dag))
+
+        print()
 
 def enumerate_defects(H, tdH, decompA, decompB, depth):
     """

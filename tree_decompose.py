@@ -123,6 +123,26 @@ class TD:
                 return False
         return True
 
+    def to_graph(self):
+        """
+            Returns the graph described by this decompositon.
+        """
+        res = Graph()
+        res.add_nodes(self._sep)
+
+        # Add upward edges from bag vertices to root-path
+        for u, iN in zip(self._bag,self._in):
+            N = [self._sep[i] for i in iN] # Translate from indices to vertices
+            for v in N:
+                res.add_edge(u,v)
+
+        # Recurse
+        for c in self.children:
+            H = c.to_graph()
+            res.add_nodes(H) 
+            res.add_edges(H.edges())
+        return res
+
     def to_ditree(self):
         """
             Returns the tree underlying this decompositon

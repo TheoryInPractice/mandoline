@@ -54,6 +54,7 @@ class Graph:
     def __init__(self):
         self.adj = defaultdict(set)
         self.nodes = set()
+        self.hash = 14695981039346656037
 
     @staticmethod
     def from_graph(other):
@@ -79,6 +80,9 @@ class Graph:
     def __repr__(self):
         return short_str(sorted(self.nodes)) + "{" + ','.join(map(lambda e: '{}{}'.format(*e), self.edges())) + "}"
     
+    def __hash__(self):
+        return self.hash
+
     def get_max_id(self):
         return max(self.nodes)
 
@@ -93,6 +97,10 @@ class Graph:
 
     def add_node(self,u):
         self.nodes.add(u)
+        # self.hash ^= 
+
+    def add_nodes(self, nodes):
+        self.nodes.update(nodes) 
 
     def remove_node(self,u):
         if u not in self.nodes:
@@ -363,6 +371,25 @@ class DiGraph:
 
         for v,w in product(in_neighs, out_neighs):
             self.add_arc(v,w)
+
+    def merge(self, u, v):
+        """ 
+            Merges node u _onto_ v, meaning we identify the two
+            nodes and label the resulting node 'v'.
+        """
+        assert u in self.nodes and v in self.nodes
+        in_neighs = self.in_neighbours(u)
+        out_neighs = self.out_neighbours(u)
+        self.remove_node(u)
+
+        for w in in_neighs:
+            self.add_arc(w,v)
+        for w in out_neighs:
+            self.add_arc(v,w)
+
+    def merge_pairs(self, pairs):
+        for u,v in pairs:
+            self.merge(u,v)
 
     def add_arc(self,u,v):
         self.nodes.add(u)

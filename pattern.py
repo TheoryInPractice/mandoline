@@ -304,7 +304,7 @@ class Pattern:
         # fnv-style 64 bit hash
         fnv_prime = 1099511628211
         fnv_offset = 14695981039346656037
-        modulo = 2 << 64 
+        modulo = 1 << 64 # 2**64
 
         graph_hash = fnv_offset
         layer_hash = fnv_offset
