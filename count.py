@@ -86,7 +86,7 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        for (HH, tdHH) in enumerate_defects(H, td,  td_previous, td_next, td_current, depth):
+        for (HH, tdHH) in enumerate_defects(H.subgraph(td_current.nodes()), td_current,  td_previous, td_next, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 def td_overlap(decompA, decompB):
@@ -186,7 +186,7 @@ def enumerate_overlaps(decompA, decompB):
                 # print("    {}  /  {}".format(tdM, tdM.td_string()))
                 yield graphMerged, tdM, mapping
 
-def enumerate_defects(H, tdH, decompA, decompB, decompMerged, depth):
+def enumerate_defects(H, tdH, decompA, decompB, depth):
     """
         Enumerates all possible graphs with td decompositions that contain
         induced subgraph that decompose into decompA, decompB (with the joint
@@ -194,18 +194,11 @@ def enumerate_defects(H, tdH, decompA, decompB, decompMerged, depth):
     """
     prefix = " "*(4*depth)
 
-    nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
+    nodesA, nodesB, _ = td_overlap(decompA, decompB)
 
     # TODO: enumerate _overlaps_
 
-    graphMerged = H.subgraph(nodesAll)
-   
-    if graphMerged != decompMerged.to_graph():
-        print(graphMerged.hash, decompMerged.to_graph().hash)
-
-    assert graphMerged == decompMerged.to_graph(), "{} != {}".format(graphMerged, decompMerged.to_graph())
-
-    for (HH, tdHH) in enumerate_edge_faults(graphMerged, decompMerged, nodesA, nodesB, depth):
+    for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
         yield HH, tdHH
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
