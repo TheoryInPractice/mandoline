@@ -76,6 +76,19 @@ class Graph:
     def __hash__(self):
         return self.hash
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        if self.hash != other.hash:
+            return False
+        if self.nodes != other.nodes:
+            return False
+        if set(self.edges()) != set(other.edges()):
+            return False
+
+        return True
+
     def get_max_id(self):
         return max(self.nodes)
 
@@ -798,6 +811,31 @@ class LGraph:
      
 
 class TestGraphMethods(unittest.TestCase):
+
+    def test_eq(self):
+        G = Graph()
+        G.add_edge('a','b')
+        G.add_edge('b','c')
+        G.add_edge('c','d')
+        G.add_edge('a','d')
+
+        self.assertEqual(G, G.copy())
+        H = Graph()
+        H.add_edges(G.edges())
+
+        self.assertEqual(G, H)
+
+        H.add_node('e')
+        self.assertNotEqual(G, H)
+        
+        H.remove_node('e')
+        self.assertEqual(G, H)
+        
+        H.add_edge('a', 'a')
+        self.assertNotEqual(G, H)
+
+        H.remove_loops()
+        self.assertEqual(G, H)
 
     def test_hashing(self):
         edges = [(0,1),(1,2),(2,0),(3,1)]
