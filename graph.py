@@ -8,21 +8,14 @@ from itertools import chain, combinations, permutations, product
 from sortedcontainers import SortedSet
 from datastructures import Indexmap
 
+from helpers import inthash, short_str
+
 import bisect
 import math
-
 import unittest
-
 import logging
 
 log = logging.getLogger("mandoline")
-
-def short_str(l):
-    l = list(l)
-    if len(l) == 0:
-        return '.'
-    return ''.join(map(str,l))
-
 
 def load_graph(filename):
     import os.path
