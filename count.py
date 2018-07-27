@@ -106,20 +106,20 @@ def td_overlap(decompA, decompB):
 
 def enumerate_overlaps(decompA, decompB):
     """
-        Enumerate partial homomorphisms between
-        the the two decompositions.
+        Enumerates all graphs and td decompositions that 
+        contain decompA, decompB as subgraph/subdecompositions
+        while overlapping in some subset of vertices.
     """
     root_path = set(decompA._sep) & set(decompB._sep)
     assert len(root_path) > 0 # Paranoia: decompositions must have common root-path.
     nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
 
     decompJoint = decompA.merge(decompB, len(root_path))
-    print("{} + {} = {}".format(decompA, decompB, decompJoint))
+    # print("{} + {} = {}".format(decompA, decompB, decompJoint))
     dagJoint = decompJoint.to_ditree()
     graphJoint = decompJoint.to_graph()
-    print("TD Tree",dagJoint)
-    print("Graph", graphJoint)
-    print()
+    # print("TD Tree",dagJoint)
+    # print("Graph", graphJoint)
 
     # Make a list of which nodes in nodesA can potentially be
     # mapped onto nodes in nodesB. The first constraint enforced here
@@ -134,7 +134,7 @@ def enumerate_overlaps(decompA, decompB):
             if rp_neighboursA == rp_neighboursB:
                 candidates[u].add(v)
 
-    print(candidates)
+    # print(candidates)
 
     # Now try all subsets of nodesA, including the empty set
     for sourceA in powerset(nodesA):
@@ -144,10 +144,9 @@ def enumerate_overlaps(decompA, decompB):
             if len(set(targetB)) != len(targetB):
                 continue # Mapping must be onto
 
-            print()
             mapping = Bimap()
             mapping.put_all(zip(sourceA, targetB))
-            print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
+            # print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
 
             # Check that subgraphs induced by 'sourceA' and 'sourceB' are the same
             # under the mapping, e.g. that the mapping is a isomorphism.
@@ -156,16 +155,16 @@ def enumerate_overlaps(decompA, decompB):
             if subgraphA.relabel(mapping) != subgraphB:
                 continue # Not a isomorphism
 
-            print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
+            # print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
             
             dagMerged = dagJoint.copy()
             dagMerged.merge_pairs(mapping.items())
-            print("  Dag contraction {} --{}--> {}".format(dagJoint, mapping, dagMerged))
+            # print("  Dag contraction {} --{}--> {}".format(dagJoint, mapping, dagMerged))
 
             # Check whether resulting decomposition graph is a DAG, otherwise
             # this mapping is incompatible with the orderings associated with decompA, decompB.
             if not dagMerged.is_acyclic():
-                print("  > not a DAG")
+                # print("  > not a DAG")
                 continue
 
             # This is going somewhere, so we can finally construct the 
@@ -173,9 +172,19 @@ def enumerate_overlaps(decompA, decompB):
             graphMerged = graphJoint.copy()
             graphMerged.merge_pairs(mapping.items())
 
-            print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
+            # print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
-        print()
+            # Decompose resulting graph according to DAG embeddings
+            print("  TD decompositions of {}:".format(graphMerged))
+            seen_tdM = set()
+            for o in dagMerged.embeddings():
+                tdM = TD.decompose(graphMerged, o)
+                if tdM in seen_tdM:
+                    continue
+                seen_tdM.add(tdM)
+
+                # print("    {}  /  {}".format(tdM, tdM.td_string()))
+                yield graphMerged, tdM, mapping
 
 def enumerate_defects(H, tdH, decompA, decompB, depth):
     """
@@ -189,6 +198,12 @@ def enumerate_defects(H, tdH, decompA, decompB, depth):
 
     # TODO: enumerate _overlaps_
 
+    subH = H.subgraph(nodesAll)
+    for (HH, tdHH) in enumerate_edge_faults(subH, tdH, nodesA, nodesB, nodesAll, depth):
+        yield HH, tdHH
+
+def enumerate_edge_faults(H, tdH, nodesA, nodesB, nodesAll, depth):
+    prefix = " "*(4*depth)
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
     potential_edges = list(product(nodesA, nodesB))
 
