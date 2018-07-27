@@ -8,10 +8,10 @@ from itertools import chain, combinations, permutations, product
 from sortedcontainers import SortedSet
 from datastructures import Indexmap
 
-from helpers import inthash, short_str
+from helpers import singlehash, pairhash, short_str
 
 import bisect
-import math
+import math, random
 import unittest
 import logging
 
@@ -89,33 +89,44 @@ class Graph:
         return sum(1 for _ in self.edges())
 
     def add_node(self,u):
+        if u in self.nodes:
+            return # Important for keeping hash consistent!
         self.nodes.add(u)
-        self.hash ^= inthash(u) 
+        self.hash ^= singlehash(u)
 
     def add_nodes(self, nodes):
         self.nodes.update(nodes) 
 
     def remove_node(self,u):
         if u not in self.nodes:
-            return
+            return # Important for keeping hash consistent!
         for v in self.neighbours(u):
             self.adj[v].remove(u)
         del self.adj[u]
         self.nodes.remove(u)
+        self.hash ^= singlehash(u)
 
     def add_edge(self,u,v):
-        self.nodes.add(u)
-        self.nodes.add(v)        
+        if self.adjacent(u,v):
+            return # Important for keeping hash consistent! 
+        self.add_node(u)
+        self.add_node(v)        
         self.adj[u].add(v)
         self.adj[v].add(u)
+        self.hash ^= pairhash(u,v)
+        self.hash ^= pairhash(v,u)
 
     def add_edges(self, edges):
         for u,v in edges:
             self.add_edge(u,v)
 
     def remove_edge(self,u,v):
+        if not self.adjacent(u,v):
+            return # Important for keeping hash consistent!
         self.adj[u].discard(v)
         self.adj[v].discard(u)
+        self.hash ^= pairhash(u,v)
+        self.hash ^= pairhash(v,u)        
 
     def remove_loops(self):
         for v in self:
@@ -785,6 +796,50 @@ class LGraph:
     def __repr__(self):
         return ','.join(map(lambda s: str(list(s)),self.wr[0]))
      
+
+class TestGraphMethods(unittest.TestCase):
+
+    def test_hashing(self):
+        edges = [(0,1),(1,2),(2,0),(3,1)]
+        G = Graph()
+        H = Graph()
+        self.assertEqual(hash(G), hash(H))
+
+        for u,v in edges:
+            G.add_edge(u,v)
+
+        for u,v in reversed(edges):
+            H.add_edge(v,u)
+
+        self.assertEqual(hash(G), hash(H))
+
+        for u,v in edges:
+            H.add_edge(u,v)
+
+        self.assertEqual(hash(G), hash(H))
+
+    def test_hashing_rnd(self):
+        edges = []
+        n = 100
+        for _ in range(1000):
+            edges.append((random.randint(0,n-1),random.randint(0,n-1)))
+
+        G = Graph()
+        H = Graph()
+        for u,v in edges:
+            G.add_edge(u,v)
+            H.add_edge(v,u)
+            self.assertEqual(hash(G), hash(H))
+
+        for u,v in edges[:len(edges)//2]:
+            G.remove_edge(u,v)
+            H.remove_edge(v,u)
+            self.assertEqual(hash(G), hash(H))
+
+        for i in range(n):
+            G.remove_node(i)
+            H.remove_node(i)
+            self.assertEqual(hash(G), hash(H))
 
 
 class TestLGraphMethods(unittest.TestCase):
