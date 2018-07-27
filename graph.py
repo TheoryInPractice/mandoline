@@ -90,7 +90,7 @@ class Graph:
 
     def add_node(self,u):
         self.nodes.add(u)
-        # self.hash ^= 
+        self.hash ^= inthash(u) 
 
     def add_nodes(self, nodes):
         self.nodes.update(nodes) 
