@@ -13,6 +13,9 @@ class Bimap:
     def __contains__(self, u):
         return u in self.to or u in self.fro
 
+    def __len__(self):
+        return len(self.to)
+
     def __getitem__(self, u):
         if u in self.to:
             return self.to[u]
@@ -34,12 +37,17 @@ class Bimap:
             raise KeyError("{} already in bimap".format(u))
         if v in self:
             raise KeyError("{} already in bimap".format(v))
+        if u == v:
+            return
         self.to[u] = v
         self.fro[v] = u
 
     def put_all(self, pairs):
         for u,v in pairs:
             self.put(u,v)
+
+    def is_identity(self):
+        return len(self.to) == 0
 
     def __repr__(self):
         return ','.join(map(short_str, self.items()))

@@ -104,7 +104,7 @@ def td_overlap(decompA, decompB):
     nodesAll = nodesA | nodesB | root_path
     return (nodesA, nodesB, nodesAll)
 
-def enumerate_overlaps(decompA, decompB):
+def enumerate_merges(decompA, decompB):
     """
         Enumerates all graphs and td decompositions that 
         contain decompA, decompB as subgraph/subdecompositions
@@ -175,16 +175,16 @@ def enumerate_overlaps(decompA, decompB):
             # print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
             # Decompose resulting graph according to DAG embeddings
-            print("  TD decompositions of {}:".format(graphMerged))
+            # print("  TD decompositions of {}:".format(graphMerged))
             seen_tdM = set()
             for o in dagMerged.embeddings():
-                tdM = TD.decompose(graphMerged, o)
-                if tdM in seen_tdM:
+                tdMerged = TD.decompose(graphMerged, o)
+                if tdMerged in seen_tdM:
                     continue
-                seen_tdM.add(tdM)
+                seen_tdM.add(tdMerged)
 
                 # print("    {}  /  {}".format(tdM, tdM.td_string()))
-                yield graphMerged, tdM, mapping
+                yield graphMerged, tdMerged, mapping
 
 def enumerate_defects(H, tdH, decompA, decompB, depth):
     """
@@ -196,10 +196,20 @@ def enumerate_defects(H, tdH, decompA, decompB, depth):
 
     nodesA, nodesB, _ = td_overlap(decompA, decompB)
 
-    # TODO: enumerate _overlaps_
-
-    for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
+    for (HH, tdHH, mapping) in enumerate_merges(decompA, decompB):
         yield HH, tdHH
+    
+        nodesAA = nodesA - mapping.source()
+        nodesBB = nodesB - mapping.target()
+
+        # if not mapping.is_identity() and len(nodesAA)*len(nodesBB) > 0:
+        #     print("  > Merged {} into {} via mapping {}".format(H, HH, mapping))
+        #     print("  > Decomposition {} became {}".format(tdH, tdHH))
+        #     print("  >   left nodes {} became {}".format(nodesA, nodesAA))
+        #     print("  >   right nodes {} became {}".format(nodesB, nodesBB))
+
+        for (HHH, tdHHH) in enumerate_edge_faults(HH, tdHH, nodesAA, nodesBB, depth):
+            yield HHH, tdHHH
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
@@ -208,6 +218,9 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     prefix = " "*(4*depth)
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
     potential_edges = list(product(nodesA, nodesB))
+
+    if len(potential_edges) == 0:
+        return
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen_decomp = set()
