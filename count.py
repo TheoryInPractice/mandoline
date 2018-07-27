@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
+from graph import Graph, DAGError, load_graph
 from datastructures import Bimap
 from pattern import PatternBuilder, Pattern
 
@@ -138,23 +138,42 @@ def enumerate_overlaps(decompA, decompB):
 
     # Now try all subsets of nodesA, including the empty set
     for sourceA in powerset(nodesA):
-        print("Attempting to map {}".format(sourceA))
-
         candidate_sets = [candidates[x] for x in sourceA]
+        subgraphA = graphJoint.subgraph(sourceA)
         for targetB in product(*candidate_sets):
             if len(set(targetB)) != len(targetB):
                 continue # Mapping must be onto
 
-            # TODO: check that induced subgraphs are the same
-            # (we know that edges towards root-path are good)
-
+            print()
             mapping = Bimap()
             mapping.put_all(zip(sourceA, targetB))
-            print("{} -> {} = {}".format(sourceA, targetB, mapping))
+            print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
+
+            # Check that subgraphs induced by 'sourceA' and 'sourceB' are the same
+            # under the mapping, e.g. that the mapping is a isomorphism.
+            subgraphB = graphJoint.subgraph(targetB)
+
+            if subgraphA.relabel(mapping) != subgraphB:
+                continue # Not a isomorphism
+
+            print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
             
-            dag = dagJoint.copy()
-            dag.merge_pairs(mapping.items())
-            print("{} --{}--> {}".format(dagJoint, list(mapping.items()), dag))
+            dagMerged = dagJoint.copy()
+            dagMerged.merge_pairs(mapping.items())
+            print("  Dag contraction {} --{}--> {}".format(dagJoint, mapping, dagMerged))
+
+            # Check whether resulting decomposition graph is a DAG, otherwise
+            # this mapping is incompatible with the orderings associated with decompA, decompB.
+            if not dagMerged.is_acyclic():
+                print("  > not a DAG")
+                continue
+
+            # This is going somewhere, so we can finally construct the 
+            # resulting graph
+            graphMerged = graphJoint.copy()
+            graphMerged.merge_pairs(mapping.items())
+
+            print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
         print()
 

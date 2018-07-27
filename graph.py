@@ -17,6 +17,13 @@ import logging
 
 log = logging.getLogger("mandoline")
 
+class DAGError(Exception):
+    """
+        Thrown by top. embedding algorithms if underlying
+        digraph is not a DAG.
+    """
+    pass
+
 def load_graph(filename):
     import os.path
     res = Graph()
@@ -141,6 +148,22 @@ class Graph:
         self.hash ^= pairhash(u,v)
         self.hash ^= pairhash(v,u)        
 
+    def merge(self, u, v):
+        """ 
+            Merges node u _onto_ v, meaning we identify the two
+            nodes and label the resulting node 'v'.
+        """
+        assert u in self.nodes and v in self.nodes
+        neighs = self.neighbours(u)
+        self.remove_node(u)
+
+        for w in neighs:
+            self.add_edge(v,w)
+
+    def merge_pairs(self, pairs):
+        for u,v in pairs:
+            self.merge(u,v)
+
     def remove_loops(self):
         for v in self:
             self.remove_edge(v,v)
@@ -195,6 +218,15 @@ class Graph:
         for u,v in self.edges():
             if u in selected and v in selected:
                 res.add_edge(u,v)
+        return res
+
+    def relabel(self, mapping):
+        res = Graph()
+        for v in self:
+            res.add_node(mapping[v])
+
+        for u,v in self.edges():
+            res.add_edge(mapping[u], mapping[v])
         return res
 
     def to_lgraph(self, order=None):
@@ -513,7 +545,6 @@ class DiGraph:
                 Computer J., 24 (1981) pp. 83-84. row
             Adapted from https://github.com/dbasden/python-digraphtools/blob/master/digraphtools/topsort.py.
         """
-
         H, imap = self.normalize()
         n = len(H)
         arcs = list(H.arcs())
@@ -521,7 +552,8 @@ class DiGraph:
         # Compute (undirected) adjacency matrix. 
         adj = [[False for j in range(n)]+[True] for i in range(n+1)]
         for i,j in arcs:
-            assert i < j, "Not a DAG!"
+            if i > j:
+                raise DAGError()
             adj[i][j] = True
             adj[j][i] = True
 
@@ -543,6 +575,18 @@ class DiGraph:
                 loc[i] = kk
                 i = 0
                 yield imap.vertices_at(p[0:n])
+
+    def is_acyclic(self):
+        """
+            Tests whether the graph is acyclic by attempting
+            to compute a topological embedding.
+        """
+        H, imap = self.normalize()
+        for i,j in H.arcs():
+            if i > j:
+                return False
+        return True
+
 
 class LGraph:
     """
@@ -813,6 +857,7 @@ class LGraph:
 class TestGraphMethods(unittest.TestCase):
 
     def test_eq(self):
+        from datastructures import Bimap
         G = Graph()
         G.add_edge('a','b')
         G.add_edge('b','c')
@@ -837,6 +882,18 @@ class TestGraphMethods(unittest.TestCase):
         H.remove_loops()
         self.assertEqual(G, H)
 
+        # Test __eq__ under relabeling
+        mapping = Bimap()
+        mapping.put('a', 1)
+        mapping.put('b', 2)
+        mapping.put('c', 3)
+        mapping.put('d', 4)
+
+        H = H.relabel(mapping)
+        self.assertNotEqual(G, H)
+        H = H.relabel(mapping)
+        self.assertEqual(G, H)
+
     def test_hashing(self):
         edges = [(0,1),(1,2),(2,0),(3,1)]
         G = Graph()
@@ -855,6 +912,8 @@ class TestGraphMethods(unittest.TestCase):
             H.add_edge(u,v)
 
         self.assertEqual(hash(G), hash(H))
+
+
 
     def test_hashing_rnd(self):
         edges = []

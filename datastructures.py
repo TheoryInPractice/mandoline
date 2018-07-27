@@ -1,3 +1,5 @@
+from helpers import short_str
+
 class Bimap:
     """
         A bijection between two sets. Anything not explicilty
@@ -34,7 +36,7 @@ class Bimap:
             self.put(u,v)
 
     def __repr__(self):
-        return ','.join(map(str, self.items()))
+        return ','.join(map(short_str, self.items()))
 
 
 class Indexmap:
