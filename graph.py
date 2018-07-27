@@ -115,7 +115,8 @@ class Graph:
         self.hash ^= singlehash(u)
 
     def add_nodes(self, nodes):
-        self.nodes.update(nodes) 
+        for u in nodes:
+            self.add_node(u) # Safest way to keep the hash intact
 
     def remove_node(self,u):
         if u not in self.nodes:

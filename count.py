@@ -86,7 +86,7 @@ def _simulate_count_rec(R, adh_size, H, td, depth):
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
-        for (HH, tdHH) in enumerate_defects(H, td,  td_previous, td_next, depth):
+        for (HH, tdHH) in enumerate_defects(H, td,  td_previous, td_next, td_current, depth):
             _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
 
 def td_overlap(decompA, decompB):
@@ -186,7 +186,7 @@ def enumerate_overlaps(decompA, decompB):
                 # print("    {}  /  {}".format(tdM, tdM.td_string()))
                 yield graphMerged, tdM, mapping
 
-def enumerate_defects(H, tdH, decompA, decompB, depth):
+def enumerate_defects(H, tdH, decompA, decompB, decompMerged, depth):
     """
         Enumerates all possible graphs with td decompositions that contain
         induced subgraph that decompose into decompA, decompB (with the joint
@@ -198,21 +198,30 @@ def enumerate_defects(H, tdH, decompA, decompB, depth):
 
     # TODO: enumerate _overlaps_
 
-    subH = H.subgraph(nodesAll)
-    for (HH, tdHH) in enumerate_edge_faults(subH, tdH, nodesA, nodesB, nodesAll, depth):
+    graphMerged = H.subgraph(nodesAll)
+   
+    if graphMerged != decompMerged.to_graph():
+        print(graphMerged.hash, decompMerged.to_graph().hash)
+
+    assert graphMerged == decompMerged.to_graph(), "{} != {}".format(graphMerged, decompMerged.to_graph())
+
+    for (HH, tdHH) in enumerate_edge_faults(graphMerged, decompMerged, nodesA, nodesB, depth):
         yield HH, tdHH
 
-def enumerate_edge_faults(H, tdH, nodesA, nodesB, nodesAll, depth):
+def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
+    """
+        
+    """
     prefix = " "*(4*depth)
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
     potential_edges = list(product(nodesA, nodesB))
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
     seen_decomp = set()
-    for o in tdH.suborders(nodesAll):
+    for o in tdH.suborders(H):
         for edges in powerset_nonempty(potential_edges):
             assert len(o) > 0
-            HH = H.subgraph(nodesAll)
+            HH = H.copy()
             HH.add_edges(edges)
             log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
             tdHH = TD.decompose(HH, o)
