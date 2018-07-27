@@ -23,6 +23,12 @@ class Bimap:
     def items(self):
         return self.to.items()
 
+    def source(self):
+        return set(self.to.keys())
+
+    def target(self):
+        return set(self.fro.keys())
+
     def put(self, u, v):
         if u in self:
             raise KeyError("{} already in bimap".format(u))
