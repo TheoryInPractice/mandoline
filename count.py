@@ -81,6 +81,15 @@ def _simulate_count_rec(R, H, td, depth):
     if already_known:
         return
 
+
+    # Merge splits from left to right
+    merged = [splits[0]]
+    for s in splits[1:]:
+        merged.append(merged[-1].merge(s, split_depth))
+
+    assert merged[-1] == td
+
+
     log.debug("%sThe decomposition branches at depth %d", prefix, split_depth)
 
     td_current = splits[0]
@@ -89,14 +98,12 @@ def _simulate_count_rec(R, H, td, depth):
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
-    for td_next in splits[1:]:
-        log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
-        _simulate_count_rec(R, H, td_next, depth+1)
-        td_previous = td_current
-        td_current = td_current.merge(td_next, split_depth)
-        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
+    for current_piece, result, past_merged in zip(splits[1:], merged[1:], merged):
+        log.debug("%sThe next piece is %s and we first count it.", prefix, current_piece)
+        _simulate_count_rec(R, H, current_piece, depth+1)
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
 
-        for (HH, tdHH) in enumerate_defects(H.subgraph(td_current.nodes()), td_current,  td_previous, td_next, depth):
+        for (HH, tdHH) in enumerate_defects(H.subgraph(result.nodes()), result,  past_merged, current_piece, depth):
             _simulate_count_rec(R, HH, tdHH, depth+1)
 
 def td_overlap(decompA, decompB):
