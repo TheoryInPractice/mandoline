@@ -23,26 +23,34 @@ log = logging.getLogger("mandoline")
 
 class Recorder:
     def __init__(self):
-        self.pieces = defaultdict(set)
-        self.decomps = defaultdict(set)
+        self.pieces = set()
+        self.decomps = set()
+        self.base_decomps = set()
 
-    def count_linear(self, td, adh_size):
+    def add_base_decomp(self, td):
+        if td in self.base_decomps:
+            return True
+        log.info("Found new base decomp %s", td.td_string())
+        self.base_decomps.add(td)
+        return False
+
+    def count_linear(self, td):
         assert(td.is_linear())
         if td not in self.pieces:
             log.info("Found new piece %s", td.td_string())
-        self.pieces[td].add(adh_size)
+        self.pieces.add(td)
 
-    def count_recursive(self, td, adh_size):
+    def count_recursive(self, td):
         assert(not td.is_linear())
-        if td in self.decomps and adh_size in self.decomps[td]:
+        if td in self.decomps:
             return True
 
-        self.decomps[td].add(adh_size)
-        log.info("Found new decomp/adh size combination %s, %s", td.td_string(), adh_size)
+        self.decomps.add(td)
+        log.info("Found new decomp %s", td.td_string())
         return False
 
     def report(self):
-        log.info("Recorded %d linear pieces and %d decompositions.", len(self.pieces), len(self.decomps))
+        log.info("Recorded %d linear pieces, %d decompositions of which %d are the basis.", len(self.pieces), len(self.decomps), len(self.base_decomps))
 
 def powerset(iterable):
     s = list(iterable)
@@ -53,41 +61,43 @@ def powerset_nonempty(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
 def simulate_count(R, H, td):
-    _simulate_count_rec(R, 0, H, td, 0)
+    already_known = R.add_base_decomp(td)
+    if already_known:
+        return 
+    _simulate_count_rec(R, H, td, 0)
 
-def _simulate_count_rec(R, adh_size, H, td, depth):
+def _simulate_count_rec(R, H, td, depth):
     prefix = " "*(4*depth)
-    log.debug("%sWe want to count %s (%s) for adhesion size %s", prefix, td.td_string(), str(td), adh_size)
+    log.debug("%sWe want to count %s (%s) for adhesion size %s", prefix, td.td_string(), str(td))
 
     split_depth = td.adhesion_size()
     splits = list(td.split())
     if len(splits) == 1:
         log.debug("%sThis decomposition is linear, we simply count it!", prefix)
-        R.count_linear(td, adh_size)
+        R.count_linear(td)
         return
 
-    already_known = R.count_recursive(td, adh_size)
+    already_known = R.count_recursive(td)
     if already_known:
         return
 
     log.debug("%sThe decomposition branches at depth %d", prefix, split_depth)
 
-    order_prefix = td._sep[:split_depth]
     td_current = splits[0]
     log.debug("%sWe first count the leftmost piece %s", prefix, td_current)
-    _simulate_count_rec(R, split_depth, H, td_current, depth+1)
+    _simulate_count_rec(R, H, td_current, depth+1)
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
     for td_next in splits[1:]:
         log.debug("%sThe next piece is %s and we first count it.", prefix, td_next)
-        _simulate_count_rec(R, split_depth, H, td_next, depth+1)
+        _simulate_count_rec(R, H, td_next, depth+1)
         td_previous = td_current
         td_current = td_current.merge(td_next, split_depth)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, td_current, td_previous, td_next)   
 
         for (HH, tdHH) in enumerate_defects(H.subgraph(td_current.nodes()), td_current,  td_previous, td_next, depth):
-            _simulate_count_rec(R, split_depth, HH, tdHH, depth+1)
+            _simulate_count_rec(R, HH, tdHH, depth+1)
 
 def td_overlap(decompA, decompB):
     """
