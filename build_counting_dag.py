@@ -27,6 +27,11 @@ class Recorder:
         self.decomps = set()
         self.base_decomps = set()
 
+        self.product_edges = dict()
+        self.product_edges_count = 0
+        self.subtract_edges = defaultdict(set)
+        self.subtract_edges_count = 0
+
     def add_base_decomp(self, td):
         if td in self.base_decomps:
             return True
@@ -50,16 +55,50 @@ class Recorder:
         return False
 
     def count_product(self, td_left, td_right, td_result):
-        assert td_left in self.decomps or td_left in self.pieces
-        assert td_right in self.decomps or td_right in self.pieces
-        assert td_result in self.decomps
-        pass
+        if td_result in self.product_edges:
+            assert self.product_edges[td_result] == (td_left, td_right)
+        else:
+            self.product_edges_count += 1
+        self.product_edges[td_result] = (td_left, td_right)
 
     def count_subtract(self, td_count, td_subtract):
-        pass
+        if td_subtract not in self.subtract_edges[td_count]:
+            self.subtract_edges_count += 1
+        self.subtract_edges[td_count].add(td_subtract)
 
     def report(self):
         log.info("Recorded %d linear pieces, %d decompositions of which %d are the basis.", len(self.pieces), len(self.decomps), len(self.base_decomps))
+        log.info("  We have %d product-count and %d subtract-count edges", self.product_edges_count, self.subtract_edges_count)
+
+    def output(self, filename):
+        log.info("Writing counting dag to %s", filename)
+
+        index = dict()
+        curr_index = 0
+        with open(filename, 'w') as f:
+            f.write('Base\n')
+            for td in self.base_decomps:
+                index[td] = curr_index
+                f.write('{} {}\n'.format(curr_index, td.td_string()))
+                curr_index += 1
+            f.write('Composite\n')
+            for td in self.decomps:
+                index[td] = curr_index
+                f.write('{} {}\n'.format(curr_index, td.td_string()))
+                curr_index += 1
+            f.write('Linear\n')
+            for td in self.pieces:
+                index[td] = curr_index
+                f.write('{} {}\n'.format(curr_index, td.td_string()))
+                curr_index += 1            
+            f.write('Edges\n')
+            for td, (left, right) in self.product_edges.items():
+                assert td in index
+                assert left in index
+                assert right in index
+                subtr_indices = [str(index[td_sub]) for td_sub in self.subtract_edges[td]]
+                f.write('{} {} {} {}\n'.format(index[td], index[left], index[right], ' '.join(subtr_indices)))
+        pass
 
 def powerset(iterable):
     s = list(iterable)
@@ -90,7 +129,6 @@ def _simulate_count_rec(R, H, td, depth):
     if already_known:
         return
 
-
     # Merge splits from left to right
     merged = [splits[0]]
     for s in splits[1:]:
@@ -110,13 +148,17 @@ def _simulate_count_rec(R, H, td, depth):
     for current_piece, result, past_merged in zip(splits[1:], merged[1:], merged):
         log.debug("%sThe next piece is %s and we first count it.", prefix, current_piece)
         _simulate_count_rec(R, H, current_piece, depth+1)
-        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
 
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
         R.count_product(past_merged, current_piece, result)
 
+        # Compute 'defects' that we need to subtract
         for (HH, tdHH) in enumerate_defects(H.subgraph(result.nodes()), result,  past_merged, current_piece, depth):
             _simulate_count_rec(R, HH, tdHH, depth+1)
             R.count_subtract(result, tdHH)
+
+        # Make sure the resulting decomposition is noted
+        R.count_recursive(result)
 
 def td_overlap(decompA, decompB):
     """
@@ -272,8 +314,8 @@ if __name__ == "__main__":
     parser.add_argument('H', help='Pattern graph H')
     # parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--no-reduction', action='store_true' )
     parser.add_argument('--quiet', action='store_true' )
+    parser.add_argument('--output', help='Output file for counting DAG' )
 
     args = parser.parse_args()
 
@@ -333,3 +375,6 @@ if __name__ == "__main__":
     log.info("Computed %d tree decompositions", len(seen))
 
     R.report()
+
+    if args.output:
+        R.output(args.output)
