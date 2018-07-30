@@ -49,6 +49,15 @@ class Recorder:
         log.info("Found new decomp %s", td.td_string())
         return False
 
+    def count_product(self, td_left, td_right, td_result):
+        assert td_left in self.decomps or td_left in self.pieces
+        assert td_right in self.decomps or td_right in self.pieces
+        assert td_result in self.decomps
+        pass
+
+    def count_subtract(self, td_count, td_subtract):
+        pass
+
     def report(self):
         log.info("Recorded %d linear pieces, %d decompositions of which %d are the basis.", len(self.pieces), len(self.decomps), len(self.base_decomps))
 
@@ -103,8 +112,11 @@ def _simulate_count_rec(R, H, td, depth):
         _simulate_count_rec(R, H, current_piece, depth+1)
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
 
+        R.count_product(past_merged, current_piece, result)
+
         for (HH, tdHH) in enumerate_defects(H.subgraph(result.nodes()), result,  past_merged, current_piece, depth):
             _simulate_count_rec(R, HH, tdHH, depth+1)
+            R.count_subtract(result, tdHH)
 
 def td_overlap(decompA, decompB):
     """
