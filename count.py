@@ -136,7 +136,7 @@ if __name__ == "__main__":
     cdag = CDAG.load(args.cdag)
     H = cdag.target_graph()
     # log.info("Loaded counting dag graph with {} vertices and {} edges".format(len(G), G.num_edges()))
-    log.info("Target graphh is {}".format(H))
+    log.info("Target graph is {}".format(H))
 
     G = load_graph(args.G)
     log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
