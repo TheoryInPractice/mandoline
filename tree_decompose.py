@@ -87,13 +87,13 @@ class TD:
             in_neighbours, child_str = s[:i], s[i+1:-1] 
         
         in_neighbours = list(map(decode_vertices, in_neighbours.split(',')))
+        in_neighbours = [tuple(N) for N in in_neighbours]
         bag = tuple(range(start_index, start_index+len(in_neighbours)))
         child_index = start_index + len(bag) # Next free index for children
         depth = len(sep)
         sep = sep + bag
 
         assert bag == sep[depth:] 
-
 
         children = []
         for c in TD._split_child_string(child_str):

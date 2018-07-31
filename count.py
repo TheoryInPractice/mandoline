@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from graph import Graph, DAGError, load_graph
-from datastructures import Bimap
+from datastructures import Bimap, Indexmap, Interval
 from pattern import PatternBuilder, Pattern
 
 import argparse
@@ -25,9 +25,11 @@ class CDAG:
     def __init__(self):
         self.graph = None
         self.index = None
-
-        self.product_edges = {}
-        self.subtract_edges = defaultdict(set)
+        self.base_indices = None
+        self.piece_indices = None
+        self.inter_indices = None
+        self.product_dag = None
+        self.subtract_dag = None
 
     @staticmethod
     def load(filename):
@@ -39,18 +41,28 @@ class CDAG:
 
         product_edges = {}
         subtract_edges = defaultdict(set)
-        
+
         def parse_base(line):
-            pass
+            _id, td_str = line.split()
+            _id = int(_id)
+            base_decomps[_id] = TD.from_string(td_str)
 
         def parse_composite(line):
-            pass
+            _id, td_str = line.split()
+            _id = int(_id)
+            decomps[_id] = TD.from_string(td_str)
 
         def parse_linear(line):
-            pass
+            _id, td_str = line.split()
+            _id = int(_id)
+            pieces[_id] = TD.from_string(td_str)
 
         def parse_edge(line):
-            pass
+            source, left, right, *sub = list(map(int,line.split()))
+            assert source not in product_edges
+            assert source not in subtract_edges            
+            product_edges[source] = (left, right)
+            subtract_edges[source].update(sub)
 
         modes = {}
         modes['Base'] = parse_base
@@ -65,6 +77,25 @@ class CDAG:
                     mode = modes[line.split()[1]]
                     continue
                 mode(line)
+
+        # Construct CDAG
+        res.index = Indexmap(len(base_decomps)+len(decomps)+len(pieces))
+        for i,td in chain(base_decomps.items(), decomps.items(), pieces.items()):
+            res.index.put(i,td)
+        res.graph = base_decomps[0].to_graph()
+
+        res.base_indices = Interval(min(base_decomps), max(base_decomps))
+        res.inter_indices = Interval(min(decomps), max(decomps))
+        res.piece_indices = Interval(min(pieces), max(pieces))
+
+        # Assert that indices are continuous and we can use intervals instead of sets
+        assert len(res.base_indices) == len(base_decomps)
+        assert len(res.inter_indices) == len(decomps)
+        assert len(res.piece_indices) == len(pieces)
+
+
+
+        return res
 
     def target_graph(self):
         return self.graph
@@ -98,6 +129,8 @@ if __name__ == "__main__":
     # Load pattern and graph
     cdag = CDAG.load(args.cdag)
     H = cdag.target_graph()
+    # log.info("Loaded counting dag graph with {} vertices and {} edges".format(len(G), G.num_edges()))
+    log.info("Target graphh is {}".format(H))
 
     G = load_graph(args.G)
     log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
@@ -115,3 +148,5 @@ if __name__ == "__main__":
     LG.compute_wr(len(H)-1)
     log.info("Done.")
 
+
+    log.info("TODO: count")

@@ -1,5 +1,22 @@
 from helpers import short_str
 
+class Interval:
+    def __init__(self, low, high):
+        self.low = low
+        self.high = high
+
+    def __len__(self):
+        return self.high - self.low + 1
+
+    def __contains__(self, x):
+        return self.low <= x and x <= self.high
+
+    def __iter__(self):
+        return iter(range(self.low, self.high+1))
+
+    def __repr__(self):
+        return "[{};{}]".format(self.low, self.high)
+
 class Bimap:
     """
         A bijection between two sets. Anything not explicilty
