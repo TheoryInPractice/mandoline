@@ -76,22 +76,22 @@ class Recorder:
         index = dict()
         curr_index = 0
         with open(filename, 'w') as f:
-            f.write('Base\n')
+            f.write('* Base\n')
             for td in self.base_decomps:
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1
-            f.write('Composite\n')
+            f.write('* Composite\n')
             for td in self.decomps:
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1
-            f.write('Linear\n')
+            f.write('* Linear\n')
             for td in self.pieces:
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1            
-            f.write('Edges\n')
+            f.write('* Edges\n')
             for td, (left, right) in self.product_edges.items():
                 assert td in index
                 assert left in index
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     # parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true' )
-    parser.add_argument('--output', help='Output file for counting DAG' )
+    parser.add_argument('--output', '-o', help='Output file for counting DAG' )
 
     args = parser.parse_args()
 

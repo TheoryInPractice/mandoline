@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DiGraph, load_graph, short_str
+from graph import Graph, DiGraph, load_graph
 from pattern import PatternBuilder, Pattern
+from helpers import short_str, vertex_str
 
 import argparse
 import itertools
@@ -264,9 +265,9 @@ class TD:
 
     def td_string(self):
         if len(self.children) == 0:
-            return ','.join(map(lambda N: short_str(N), self._in))
+            return ','.join(map(lambda N: vertex_str(N), self._in))
         else:
-            return ','.join(map(lambda N: short_str(N), self._in)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
+            return ','.join(map(lambda N: vertex_str(N), self._in)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
 
     def order_string(self):
         if len(self.children) == 0:

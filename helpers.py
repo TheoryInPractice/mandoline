@@ -16,6 +16,9 @@ def pairhash(x, y):
 
     return res
 
+def vertex_str(l):
+    return short_str(encode_vertices(l))
+
 
 def short_str(l):
     l = list(l)
@@ -23,6 +26,29 @@ def short_str(l):
         return '.'
     return ''.join(map(str,l))
 
+def encode_vertices(l):
+    l = list(l)
+    return [encode_vertex(x) for x in l]
+
+def decode_vertices(s):
+    return [decode_vertex(c) for c in s]
+
+def encode_vertex(x):
+    assert x >= 0
+    if x < 10:
+        return str(x) # 0-9
+    if x >= 10 and x <= 35:
+        return chr(97 + (x-10)) #a - z
+    # If necessary: extend to uppercase.
+    assert False, "Cannot encode number {}".format(x)
+
+def decode_vertex(c):
+    c = ord(c)
+    if c >= 48 and c <= 57:
+        return c - 48 # 0-9
+    if c >= 97 and c <= 122:
+        return c - 87
+    assert False, "Cannot decode character {}".format(c)
 
 if __name__ == "__main__":
     for i in range(100):
