@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 
+def CheckExt(choices):
+    import argparse, os.path
+
+    """
+        Argparse 'type' to check for specific file extensions.
+        See: https://stackoverflow.com/questions/15203829/python-argparse-file-extension-checking
+    """
+    class Act(argparse.Action):
+        def __call__(self,parser,namespace,fname,option_string=None):
+            ext = os.path.splitext(fname)[1][1:]
+            print(">>",fname, ext)
+            if ext not in choices:
+                option_string = '({})'.format(option_string) if option_string else ''
+                raise argparse.ArgumentError(self, "file doesn't end with one of {}{}".format(choices,option_string))
+            else:
+                setattr(namespace,self.dest,fname)
+    return Act
+
 def singlehash(x):
     return (hash(x) * 14695981039346656037) % (1 << 64)
 

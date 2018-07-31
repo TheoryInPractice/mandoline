@@ -11,10 +11,8 @@ import sys
 from collections import defaultdict
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
-import bisect
-import math, random
-import cairo
 
+from helpers import CheckExt
 from tree_decompose import TD, short_str
 
 import logging
@@ -198,13 +196,13 @@ def td_overlap(decompA, decompB):
         nodes exclusive to decompB and all nodes of the joint
         decomposition (including their joint root-path).
     """
-    root_path = set(decompA._sep) & set(decompB._sep)
+    rootPath = set(decompA._sep) & set(decompB._sep)
     nodesA = decompA.nodes()
     nodesB = decompB.nodes()
     common_nodes = nodesA & nodesB
     nodesA -= common_nodes
     nodesB -= common_nodes
-    nodesAll = nodesA | nodesB | root_path
+    nodesAll = nodesA | nodesB | rootPath
     return (nodesA, nodesB, nodesAll)
 
 def enumerate_merges(decompA, decompB):
@@ -213,14 +211,19 @@ def enumerate_merges(decompA, decompB):
         contain decompA, decompB as subgraph/subdecompositions
         while overlapping in some subset of vertices.
     """
-    root_path = set(decompA._sep) & set(decompB._sep)
-    assert len(root_path) > 0 # Paranoia: decompositions must have common root-path.
+    rootPathSet = set(decompA._sep) & set(decompB._sep)
+    rootPath = decompA._sep[:len(rootPathSet)]
+    rootPathEdges = list(zip(rootPath[:-1],rootPath[1:]))
+    assert len(rootPath) > 0 # Paranoia: decompositions must have common root-path.
+    assert rootPath == decompB._sep[:len(rootPathSet)]
+
     nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
 
-    decompJoint = decompA.merge(decompB, len(root_path))
+    decompJoint = decompA.merge(decompB, len(rootPath))
     # print("{} + {} = {}".format(decompA, decompB, decompJoint))
     dagJoint = decompJoint.to_ditree()
-    graphJoint = decompJoint.to_graph()
+    graphJoint = decompJoint.to_graph() 
+
     # print("TD Tree",dagJoint)
     # print("Graph", graphJoint)
 
@@ -231,9 +234,9 @@ def enumerate_merges(decompA, decompB):
     candidates = {}
     for u in nodesA:
         candidates[u] = set()
-        rp_neighboursA = decompA.in_neighbours(u) & root_path
+        rp_neighboursA = decompA.in_neighbours(u) & rootPathSet
         for v in nodesB:
-            rp_neighboursB = decompB.in_neighbours(v) & root_path
+            rp_neighboursB = decompB.in_neighbours(v) & rootPathSet
             if rp_neighboursA == rp_neighboursB:
                 candidates[u].add(v)
 
@@ -281,7 +284,10 @@ def enumerate_merges(decompA, decompB):
             # print("  TD decompositions of {}:".format(graphMerged))
             seen_tdM = set()
             for o in dagMerged.embeddings():
-                tdMerged = TD.decompose(graphMerged, o)
+                # We decompose 'graphMerged' with the additional constraint that
+                # the root-path must stay a prefix of the resulting decomposition
+                # (by using virtual edges along that path)
+                tdMerged = TD.decompose(graphMerged, o, rootPathEdges)
                 if tdMerged in seen_tdM:
                     continue
                 seen_tdM.add(tdMerged)
@@ -323,7 +329,7 @@ if __name__ == "__main__":
     # parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true' )
-    parser.add_argument('--output', '-o', help='Output file for counting DAG' )
+    parser.add_argument('--output', '-o', help='Output file for counting DAG', action=CheckExt({'dag'}))
 
     args = parser.parse_args()
 
