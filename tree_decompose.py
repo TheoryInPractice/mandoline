@@ -2,7 +2,7 @@
 
 from graph import Graph, DiGraph, load_graph
 from pattern import PatternBuilder, Pattern
-from helpers import short_str, vertex_str
+from helpers import short_str, vertex_str, decode_vertices
 
 import argparse
 import itertools
@@ -20,7 +20,6 @@ log = logging.getLogger("mandoline")
 
 def suborder(order, vertices):
     return tuple(filter(lambda s: s in vertices, order))
-
 
 class TD:
     @staticmethod
@@ -52,6 +51,58 @@ class TD:
 
         res = TD(sep, in_neighbours, children, depth)
         return res
+
+    @staticmethod
+    def from_string(s):
+        res, _ = TD._from_string_rec(s, tuple(), 0)
+        return res
+
+    @staticmethod
+    def _split_child_string(s):
+        if len(s) == 0:
+            return []
+
+        # Splits a string by the '|' symbole but ignore portions
+        # that are nested inside curly braces.
+        splits = [-1] 
+        depth = 0
+        for i,c in enumerate(s):
+            if c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+            elif c == '|' and depth == 0:
+                splits.append(i)
+        splits.append(len(s))
+        res = [s[i+1:j] for i,j in zip(splits[:-1], splits[1:])]
+        return res
+
+    @staticmethod
+    def _from_string_rec(s, sep, start_index, rec_depth=0):
+        # Split string into separator / children
+        i = s.find('{')
+        if i == -1:
+            in_neighbours, child_str = s, ""
+        else:
+            in_neighbours, child_str = s[:i], s[i+1:-1] 
+        
+        in_neighbours = list(map(decode_vertices, in_neighbours.split(',')))
+        bag = tuple(range(start_index, start_index+len(in_neighbours)))
+        child_index = start_index + len(bag) # Next free index for children
+        depth = len(sep)
+        sep = sep + bag
+
+        assert bag == sep[depth:] 
+
+
+        children = []
+        for c in TD._split_child_string(child_str):
+            child, max_index = TD._from_string_rec(c, sep, child_index, rec_depth+1)
+            children.append(child)
+            child_index = max_index
+
+        return TD(sep, in_neighbours, children, depth), child_index
+
 
     def __init__(self, sep, in_neighbours, children, depth):
         self.parent = None

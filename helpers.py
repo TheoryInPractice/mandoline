@@ -19,7 +19,6 @@ def pairhash(x, y):
 def vertex_str(l):
     return short_str(encode_vertices(l))
 
-
 def short_str(l):
     l = list(l)
     if len(l) == 0:
@@ -31,6 +30,8 @@ def encode_vertices(l):
     return [encode_vertex(x) for x in l]
 
 def decode_vertices(s):
+    if s == '.':
+        return []
     return [decode_vertex(c) for c in s]
 
 def encode_vertex(x):
