@@ -73,7 +73,8 @@ class Bimap:
 class Indexmap:
     """
         Maps a set of vertices (e.g. arbitrary, hashable objects)
-        to indices [0,...,n-1].
+        to indices [0,...,n-1]. 
+        TODO: Find better name since it now does not _only_ store vertices.
     """
     def __init__(self, size):
         self.vertex_to_index = {}
@@ -84,6 +85,9 @@ class Indexmap:
 
     def __iter__(self):
         return iter(range(len(self.index_to_vertex)))
+
+    def __getitem__(self, x):
+        return self.index_to_vertex[x]
 
     def put(self, index, vertex):
         if index >= len(self) or index < 0:

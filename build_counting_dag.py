@@ -163,14 +163,23 @@ def _simulate_count_rec(R, H, td, depth):
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
         R.count_product(past_merged, current_piece, result)
 
-        # Compute 'defects' that we need to subtract
-        for (HH, tdHH) in enumerate_defects(H.subgraph(result.nodes()), result,  past_merged, current_piece, depth):
-            _simulate_count_rec(R, HH, tdHH, depth+1)
-            R.count_subtract(result, tdHH)
+        nodesA, nodesB, _ = td_overlap(past_merged, current_piece)
+
+        for (H, tdH, mapping) in enumerate_merges(past_merged, current_piece):   
+            nodesAA = nodesA - mapping.source()
+            nodesBB = nodesB - mapping.target()
+
+            # TODO: if nodesAA is empty we have a complete isomorphism from past_merged
+            # into a subset of current_piece. We need to count these!!
+
+            _simulate_count_rec(R, H, tdH, depth+1)
+
+            for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
+                _simulate_count_rec(R, HH, tdHH, depth+1)
+                R.count_subtract(result, tdHH)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
-    assert result == td
 
 def td_overlap(decompA, decompB):
     """
@@ -269,30 +278,6 @@ def enumerate_merges(decompA, decompB):
                 # print("    {}  /  {}".format(tdM, tdM.td_string()))
                 yield graphMerged, tdMerged, mapping
 
-def enumerate_defects(H, tdH, decompA, decompB, depth):
-    """
-        Enumerates all possible graphs with td decompositions that contain
-        induced subgraph that decompose into decompA, decompB (with the joint
-        separator 'separator').
-    """
-    prefix = " "*(4*depth)
-
-    nodesA, nodesB, _ = td_overlap(decompA, decompB)
-
-    for (HH, tdHH, mapping) in enumerate_merges(decompA, decompB):
-        yield HH, tdHH
-    
-        nodesAA = nodesA - mapping.source()
-        nodesBB = nodesB - mapping.target()
-
-        # if not mapping.is_identity() and len(nodesAA)*len(nodesBB) > 0:
-        #     print("  > Merged {} into {} via mapping {}".format(H, HH, mapping))
-        #     print("  > Decomposition {} became {}".format(tdH, tdHH))
-        #     print("  >   left nodes {} became {}".format(nodesA, nodesAA))
-        #     print("  >   right nodes {} became {}".format(nodesB, nodesBB))
-
-        for (HHH, tdHHH) in enumerate_edge_faults(HH, tdHH, nodesAA, nodesBB, depth):
-            yield HHH, tdHHH
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
