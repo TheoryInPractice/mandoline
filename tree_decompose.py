@@ -211,6 +211,23 @@ class TD:
             res.add_arc(self._bag[-1], c._bag[0])
         return res
 
+    def to_piece(self):
+        from pattern import Pattern, Piece
+        """
+            Turns a _linear_ TD decomposition into a piece;
+            this enables us to use the counting infrastructure of
+            the enumeration part.
+        """
+        assert self.is_linear()
+        order = list(self.orders())[0]
+        LG, imap = self.to_graph().to_lgraph(order)
+        print(LG)
+        print(Pattern(LG))
+        pieces = Pattern(LG).decompose()
+        assert len(pieces) == 1
+
+        return pieces[0]
+
     def orders(self):
         for o in self.to_ditree().embeddings():
             yield o
@@ -255,7 +272,6 @@ class TD:
 
     def adhesion_size(self):
         return len(self._in)
-
 
     def is_linear(self):
         assert(len(self.children) != 1)

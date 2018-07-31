@@ -50,7 +50,7 @@ class Recorder:
         if td in self.decomps:
             return True
 
-        self.decomps.add(td)
+        self.decomps.add(td)    
         log.info("Found new decomp %s", td.td_string())
         return False
 
@@ -83,11 +83,17 @@ class Recorder:
                 curr_index += 1
             f.write('* Composite\n')
             for td in self.decomps:
+                if td in index:
+                    assert td in self.base_decomps
+                    continue
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1
             f.write('* Linear\n')
             for td in self.pieces:
+                if td in index:
+                    assert td in self.base_decomps
+                    continue
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1            
@@ -159,6 +165,7 @@ def _simulate_count_rec(R, H, td, depth):
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
+    assert result == td
 
 def td_overlap(decompA, decompB):
     """

@@ -465,6 +465,12 @@ class DiGraph:
     def out_neighbours(self,u):
         return frozenset(self.out[u])
 
+    def out_neighbours_set(self, centers):
+        res = set()
+        for u in centers:
+            res = res | self.out_neighbours(u)
+        return (res - centers)
+
     def in_neighbours(self,u):
         return frozenset(self._in[u])
 

@@ -3,6 +3,7 @@
 from graph import Graph, DiGraph, DAGError, load_graph
 from datastructures import Bimap, Indexmap, Interval
 from pattern import PatternBuilder, Pattern
+from sortedcontainers import SortedSet
 
 import argparse
 import itertools
@@ -24,10 +25,20 @@ log = logging.getLogger("mandoline")
 class CDAG:
     def __init__(self):
         self.graph = None
-        self.index = None
-        self.base_indices = None
-        self.piece_indices = None
-        self.inter_indices = None
+        self.index = None # Global index for all decompositions
+
+        # The three types of decompositions. 'base_decomps'
+        # are those we want to count (via inclusion/exclusion);
+        # 'decomps' are those intermediate decompositions which we 
+        # have to count first to do so (also via inclusion/exclusion) and
+        # 'pieces' are _linear_ TD decompositions that can actually be counted
+        # directly in the graph.
+        self.base_decomps = None
+        self.decomps = None
+        self.pieces = None
+
+        self.adhesion_sizes = None
+
         self.product_arcs = None
         self.dependency_dag = None
 
@@ -84,15 +95,6 @@ class CDAG:
             res.index.put(i,td)
         res.graph = base_decomps[0].to_graph()
 
-        res.base_indices = Interval(min(base_decomps), max(base_decomps))
-        res.inter_indices = Interval(min(decomps), max(decomps))
-        res.piece_indices = Interval(min(pieces), max(pieces))
-
-        # Assert that indices are continuous and we can use intervals instead of sets
-        assert len(res.base_indices) == len(base_decomps)
-        assert len(res.inter_indices) == len(decomps)
-        assert len(res.piece_indices) == len(pieces)
-
         res.dependency_dag = DiGraph()
         for s,(l,r) in product_edges.items():
             res.dependency_dag.add_arc(s, l)
@@ -101,10 +103,43 @@ class CDAG:
             for t in N:
                 res.dependency_dag.add_arc(s,t)            
 
+        res.base_decomps = base_decomps
+        res.decomps = decomps
+        res.pieces = pieces
+
+        # Compute adhesion sizes. For base decompositions this is simply the
+        # length of the root-path until the first branching vertex; we then
+        # propagate this value downwards. The same holds for intermediate 
+        # decompositions; hence every decomposition might need to be counted for
+        # multiple adhesion sets (and thus sizes).
+        res.adhesion_sizes = defaultdict(SortedSet)
+        for i,td in res.base_decomps.items():
+            res.adhesion_sizes[i].add(len(td._sep))
+            print(i,td,len(td._sep), res.dependency_dag.in_neighbours(i))
+
+        visited = set(res.base_decomps.keys())
+        print(visited)
+        frontier = res.dependency_dag.out_neighbours_set(visited)
+        print(frontier)
+
+        while len(frontier) != 0:
+            print(frontier)
+            for i in frontier:
+                for parent in res.dependency_dag.in_neighbours(i): 
+                    res.adhesion_sizes[i].update(res.adhesion_sizes[parent])
+            visited |= frontier
+            frontier = res.dependency_dag.out_neighbours_set(visited)
+
+        for i in res.index:
+            print(i, res.adhesion_sizes[i])
+
         return res
 
     def target_graph(self):
         return self.graph
+
+    def count(self, LG):
+        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts subgraph in G according to counting DAG file')
