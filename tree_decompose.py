@@ -23,16 +23,20 @@ def suborder(order, vertices):
 
 class TD:
     @staticmethod
-    def decompose(G, order):
-        # assert(G.is_connected())
+    def decompose(G, order, extra_edges=None):
         assert set(G) == set(order), "Order {} is not incompatible with vertices {}".format(order, list(G)) 
-        return TD._decompose_rec(G, G, order, [])
+
+        GG = G.copy()
+        if extra_edges != None:
+            GG.add_edges(extra_edges)
+        return TD._decompose_rec(G, GG, order, [])
 
     @staticmethod
     def _decompose_rec(G, subG, order, sep):
         sep = list(sep)
         depth = len(sep)
         R = Graph.from_graph(subG)
+
         in_neighbours = []
         for v in order:
             if v not in R:

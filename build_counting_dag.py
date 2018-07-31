@@ -169,8 +169,19 @@ def _simulate_count_rec(R, H, td, depth):
             nodesAA = nodesA - mapping.source()
             nodesBB = nodesB - mapping.target()
 
-            # TODO: if nodesAA is empty we have a complete isomorphism from past_merged
-            # into a subset of current_piece. We need to count these!!
+            # TODO: if nodesBB is empty we have a complete isomorphism from current_piece
+            # into a subset of past_merged. We need to count these!!
+            if len(nodesBB) == 0:
+                print("-------------------")
+                print(H)
+                print(td, past_merged, current_piece)
+                print(td.td_string(), past_merged.td_string(), current_piece.td_string())
+                print(nodesA, nodesB)
+                print(nodesAA, nodesBB, mapping)
+                print(tdH, past_merged)
+                print(tdH.td_string(), past_merged.td_string())
+                print(past_merged.to_ditree())
+                assert tdH == past_merged
 
             _simulate_count_rec(R, H, tdH, depth+1)
 
