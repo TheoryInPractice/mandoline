@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DAGError, load_graph
+from graph import Graph, DiGraph, DAGError, load_graph
 from datastructures import Bimap, Indexmap, Interval
 from pattern import PatternBuilder, Pattern
 
@@ -28,8 +28,8 @@ class CDAG:
         self.base_indices = None
         self.piece_indices = None
         self.inter_indices = None
-        self.product_dag = None
-        self.subtract_dag = None
+        self.product_arcs = None
+        self.dependency_dag = None
 
     @staticmethod
     def load(filename):
@@ -93,7 +93,13 @@ class CDAG:
         assert len(res.inter_indices) == len(decomps)
         assert len(res.piece_indices) == len(pieces)
 
-
+        res.dependency_dag = DiGraph()
+        for s,(l,r) in product_edges.items():
+            res.dependency_dag.add_arc(s, l)
+            res.dependency_dag.add_arc(s, l)
+        for s,N in subtract_edges.items():
+            for t in N:
+                res.dependency_dag.add_arc(s,t)            
 
         return res
 
