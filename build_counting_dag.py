@@ -98,12 +98,17 @@ class Recorder:
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1            
             f.write('* Edges\n')
+
+            edges_rows = []
             for td, (left, right) in self.product_edges.items():
                 assert td in index
                 assert left in index
                 assert right in index
                 subtr_indices = [str(index[td_sub]) for td_sub in self.subtract_edges[td]]
-                f.write('{} {} {} {}\n'.format(index[td], index[left], index[right], ' '.join(subtr_indices)))
+                edges_rows.append( (index[td], index[left], index[right], ' '.join(subtr_indices)) )
+            
+            for e in sorted(edges_rows):
+                f.write('{} {} {} {}\n'.format(*e))
         pass
 
 def powerset(iterable):
