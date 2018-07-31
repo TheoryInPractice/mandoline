@@ -52,12 +52,12 @@ class Recorder:
         log.info("Found new decomp %s", td.td_string())
         return False
 
-    def count_product(self, td_left, td_right, td_result):
+    def count_product(self, td_left, td_right, td_result, subisomorphisms):
         if td_result in self.product_edges:
-            assert self.product_edges[td_result] == (td_left, td_right)
+            assert self.product_edges[td_result] == (td_left, td_right, subisomorphisms)
         else:
             self.product_edges_count += 1
-        self.product_edges[td_result] = (td_left, td_right)
+        self.product_edges[td_result] = (td_left, td_right, subisomorphisms)
 
     def count_subtract(self, td_count, td_subtract):
         if td_subtract not in self.subtract_edges[td_count]:
@@ -98,15 +98,15 @@ class Recorder:
             f.write('* Edges\n')
 
             edges_rows = []
-            for td, (left, right) in self.product_edges.items():
+            for td, (left, right, subisos) in self.product_edges.items():
                 assert td in index
                 assert left in index
                 assert right in index
                 subtr_indices = [str(index[td_sub]) for td_sub in self.subtract_edges[td]]
-                edges_rows.append( (index[td], index[left], index[right], ' '.join(subtr_indices)) )
+                edges_rows.append( (index[td], index[left], index[right], subisos, ' '.join(subtr_indices)) )
             
             for e in sorted(edges_rows):
-                f.write('{} {} {} {}\n'.format(*e))
+                f.write('{} {} {} ({}) {}\n'.format(*e))
         pass
 
 def powerset(iterable):
@@ -159,26 +159,18 @@ def _simulate_count_rec(R, H, td, depth):
         _simulate_count_rec(R, H, current_piece, depth+1)
 
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
-        R.count_product(past_merged, current_piece, result)
 
         nodesA, nodesB, _ = td_overlap(past_merged, current_piece)
+        subisomorphisms = 0
 
         for (H, tdH, mapping) in enumerate_merges(past_merged, current_piece):   
             nodesAA = nodesA - mapping.source()
             nodesBB = nodesB - mapping.target()
 
-            # TODO: if nodesBB is empty we have a complete isomorphism from current_piece
-            # into a subset of past_merged. We need to count these!!
+            # If nodesBB is empty we have a complete isomorphism from current_piece
+            # into a subset of past_merged. We need to count these!
             if len(nodesBB) == 0:
-                print("-------------------")
-                print(H)
-                print(td, past_merged, current_piece)
-                print(td.td_string(), past_merged.td_string(), current_piece.td_string())
-                print(nodesA, nodesB)
-                print(nodesAA, nodesBB, mapping)
-                print(tdH, past_merged)
-                print(tdH.td_string(), past_merged.td_string())
-                print(past_merged.to_ditree())
+                subisomorphisms += 1
                 assert tdH == past_merged
 
             _simulate_count_rec(R, H, tdH, depth+1)
@@ -186,6 +178,8 @@ def _simulate_count_rec(R, H, td, depth):
             for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
                 _simulate_count_rec(R, HH, tdHH, depth+1)
                 R.count_subtract(result, tdHH)
+
+        R.count_product(past_merged, current_piece, result, subisomorphisms)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)

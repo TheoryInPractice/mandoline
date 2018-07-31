@@ -39,7 +39,7 @@ class CDAG:
 
         self.adhesion_sizes = None
 
-        self.product_arcs = None
+        self.product_edges = None
         self.merge_operations = None
         self.dependency_dag = None
 
@@ -70,11 +70,15 @@ class CDAG:
             pieces[_id] = TD.from_string(td_str)
 
         def parse_edge(line):
-            source, left, right, *sub = list(map(int,line.split()))
+            source, left, right, subisos, *sub = list(line.split())
+            source, left, right = int(source), int(left), int(right)
+            subisos = int(subisos[1:-1]) # This value is surrounded by parantheses
+            sub = list(map(int, sub))
+
             assert source not in product_edges
             assert source not in subtract_edges
             assert source != left and source != right            
-            product_edges[source] = (left, right)
+            product_edges[source] = (left, right, subisos)
             subtract_edges[source].update(sub)
 
         modes = {}
@@ -98,7 +102,7 @@ class CDAG:
         res.graph = base_decomps[0].to_graph()
 
         res.dependency_dag = DiGraph()
-        for s,(l,r) in product_edges.items():
+        for s,(l,r,_) in product_edges.items():
             res.dependency_dag.add_arc(s, l)
             res.dependency_dag.add_arc(s, l)
         for s,N in subtract_edges.items():
@@ -115,7 +119,7 @@ class CDAG:
         res.product_edges = product_edges
 
         res.merge_operations = defaultdict(dict)
-        for s,(l,r) in product_edges.items():
+        for s,(l,r,subisos) in product_edges.items():
             adh_size = len(res.index[s]._sep)
             assert (l,r) not in res.merge_operations or adh_size not in res.merge_operations[(l,r)]
             res.merge_operations[(l,r)][adh_size] = s
