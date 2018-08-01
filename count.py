@@ -40,6 +40,7 @@ class CDAG:
         self.adhesion_sizes = None
 
         self.product_edges = None
+        self.subtract_edges = None
         self.merge_operations = None
         self.dependency_dag = None
 
@@ -47,22 +48,82 @@ class CDAG:
         return self.graph
 
     def count(self, LG):
-        return 
         k = len(self.graph)
         counts = defaultdict(lambda: defaultdict(int))
-        for i in self.pieces:
+        adhesions = defaultdict(set)
+
+        # Traverse the topological order bases,inter,pieces in reverse
+        # to ensure that dependencies are resolved.
+        num_pieces = len(self.pieces)
+        num_inter = len(self.decomps)
+        num_bases = len(self.base_decomps)
+
+        def count_linear(i):
             td = self.index[i]
             piece = td.to_piece(k)
-            print(td.td_string(), self.adhesion_sizes[i])
             for iu in LG:
                 for match in LG.match(iu, piece):
-                    print(match)
                     for asize in self.adhesion_sizes[i]:
                         adh = match.get_adhesion(asize)
                         counts[adh][i] += 1
+                        adhesions[i].add(adh)
 
-        for adh in counts:
-            print(adh, counts[adh])
+        def count_composite(i):
+            print("Counting", i)
+            left, right, subisos = self.product_edges[i]
+            subtract = self.subtract_edges[i]
+            print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(i, left, right, subisos, left, subtract))
+
+            td, td_left, td_right = self.index[i], self.index[left], self.index[right]
+            td_subtract = self.index.vertices_at(subtract)
+            td_subtract_str = '; '.join(map(lambda t: t.td_string(), td_subtract))
+            if subisos == 0:
+                print("#{} = #{} x #{} - #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
+            else:
+                print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), subisos, td_left.td_string(), td_subtract_str))
+
+            for adh in (adhesions[left] & adhesions[right]):
+                c = counts[adh][left] * counts[adh][right] 
+                c -= subisos*counts[adh][left]
+                for j in subtract:
+                    c -= counts[adh][j]
+                assert c >= 0
+                if c == 0:
+                    continue
+
+                print("Counted {} instances of {} on {}".format(c,td,adh))
+                for asize in self.adhesion_sizes[i]:
+                    assert asize <= len(adh)
+                    counts[adh[:asize]][i] += c
+                    adhesions[i].add(adh[:asize])
+                    print("  > Adding to {}, summing to {}".format(adh[:asize], counts[adh[:asize]][i]))
+
+
+        # (num_bases+num_inter+num_pieces-1)..num_bases+num_inter
+        for i in reversed(range(num_bases+num_inter,num_bases+num_inter+num_pieces)):
+            assert i in self.pieces
+            count_linear(i)
+
+        # (num_bases+num_inter-1)..num_bases
+        for i in reversed(range(num_bases,num_bases+num_inter)):
+            assert i in self.decomps
+            count_composite(i)
+           
+        # (num_bases-1)..0
+        for i in reversed(range(num_bases)):
+            assert i in self.base_decomps
+            if self.dependency_dag.out_degree(i) == 0:
+                assert self.index[i].is_linear()
+                count_linear(i)
+            else:
+                count_composite(i)
+
+        total = 0
+        for i in range(num_bases):
+            pattern_count = counts[tuple()][i]
+            total += pattern_count
+            print("Pattern {} {} counted {} times".format(i, self.index[i].td_string(), pattern_count))
+        print("Counted target graph {} times in host graph".format(total))
 
     @staticmethod
     def load(filename):
@@ -118,11 +179,12 @@ class CDAG:
 
         # Construct CDAG
         res.index = Indexmap(len(base_decomps)+len(decomps)+len(pieces))
+        res.dependency_dag = DiGraph()
         for i,td in chain(base_decomps.items(), decomps.items(), pieces.items()):
             res.index.put(i,td)
+            res.dependency_dag.add_node(i)
         res.graph = base_decomps[0].to_graph()
 
-        res.dependency_dag = DiGraph()
         for s,(l,r,_) in product_edges.items():
             res.dependency_dag.add_arc(s, l)
             res.dependency_dag.add_arc(s, l)
@@ -131,13 +193,28 @@ class CDAG:
                 res.dependency_dag.add_arc(s,t)           
         res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
 
+        # Sanity checks: base_decomps should be sources, pieces should be sinks
+        # and the indices provide a topological embedding for the graph (hence proving
+        # that it is indeed a DAG).
+        for i in base_decomps:
+            assert res.dependency_dag.in_degree(i) == 0
+        for i in pieces:
+            assert res.dependency_dag.out_degree(i) == 0
+        for i,j in res.dependency_dag.arcs():
+            assert i < j 
+
         res.base_decomps = base_decomps
         res.decomps = decomps
         res.pieces = pieces
 
+        print("Base decompositions: {}--{}".format(min(base_decomps), max(base_decomps)))
+        print("Interm. decompositions: {}--{}".format(min(decomps), max(decomps)))
+        print("Linear. decompositions: {}--{}".format(min(pieces), max(pieces)))
+
         # Store product edges and reverse lookup of what the merging
         # of a td-pair results in
         res.product_edges = product_edges
+        res.subtract_edges = subtract_edges
 
         res.merge_operations = defaultdict(dict)
         for s,(l,r,subisos) in product_edges.items():
@@ -156,16 +233,14 @@ class CDAG:
 
         # Now compute adhesion sizes for all other decompositions
         visited = set(res.base_decomps.keys())
-        print(visited)
         frontier = res.dependency_dag.out_neighbours_set(visited)
-        print(frontier)
 
         while len(frontier) != 0:
-            print(frontier)
             for i in frontier:
                 for parent in res.dependency_dag.in_neighbours(i): 
                     parent_adhesion = res.index[parent].adhesion_size()
                     if parent_adhesion > res.index[i].adhesion_size():
+                        # This issue should be solved since commit a8202d9.
                         print("Decomp: ", res.index[i].td_string())
                         print("Parent: ", res.index[parent].td_string())
                         assert False
@@ -175,16 +250,14 @@ class CDAG:
             visited |= frontier
             frontier = res.dependency_dag.out_neighbours_set(visited)
 
-        for i in res.index:
-            print(i, res.adhesion_sizes[i])
-
         return res
 
 
 if __name__ == "__main__":
+    from helpers import CheckExt
     parser = argparse.ArgumentParser(description='Counts subgraph in G according to counting DAG file')
 
-    parser.add_argument('cdag', help='Counting DAG file')
+    parser.add_argument('cdag', help='Counting DAG file', action=CheckExt({'dag'}))
     parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true' )

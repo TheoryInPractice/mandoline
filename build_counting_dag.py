@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DAGError, load_graph
+from graph import Graph, DiGraph, DAGError, load_graph
 from datastructures import Bimap
 from pattern import PatternBuilder, Pattern
 
@@ -71,6 +71,29 @@ class Recorder:
     def output(self, filename):
         log.info("Writing counting dag to %s", filename)
 
+        # Construct dependency DAG for intermediate decompositions
+        # in order to output decompositions in a topological order.
+        # We know that 'base_decomps' are sources and 'pieces' are sinks,
+        # hence we only need to compute an order for the intermediate
+        # decompositions in 'decomps'.
+        dag = DiGraph()
+        for td in self.decomps:
+            if td in self.base_decomps:
+                continue
+            dag.add_node(td)
+        nodes = set(dag)
+        for td in nodes:
+            left, right, _ =  self.product_edges[td]
+            out_neighbours = set([left, right])
+            out_neighbours.update(self.subtract_edges[td])
+            out_neighbours = out_neighbours & nodes
+            for other in out_neighbours:
+                dag.add_arc(td, other)
+        dag.remove_loops()
+
+        _, imap = dag.normalize()
+        decomp_order = imap.order() # Iterator!
+
         index = dict()
         curr_index = 0
         with open(filename, 'w') as f:
@@ -80,7 +103,7 @@ class Recorder:
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
                 curr_index += 1
             f.write('* Composite\n')
-            for td in self.decomps:
+            for td in decomp_order:
                 if td in index:
                     assert td in self.base_decomps
                     continue
@@ -293,7 +316,9 @@ def enumerate_merges(decompA, decompB):
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
-                
+        Enumerates all td decompositions that can be constructed from tdH by
+        adding edges between the sets nodesA, nodesB. We enforce that the root-path
+        of tdH must be a prefix of the resulting decompositions' root-path.
     """
     prefix = " "*(4*depth)
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 

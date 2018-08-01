@@ -89,6 +89,9 @@ class Indexmap:
     def __getitem__(self, x):
         return self.index_to_vertex[x]
 
+    def order(self):
+        return iter(self.index_to_vertex)
+
     def put(self, index, vertex):
         if index >= len(self) or index < 0:
             raise IndexError()
