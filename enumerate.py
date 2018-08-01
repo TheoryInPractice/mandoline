@@ -166,7 +166,7 @@ def assemble_pieces(LG, pieces, recorder):
     log.info("Primary {}".format(prim_piece))
     log.info("  Leaves: {}".format(prim_piece.leaves))
 
-    # Compute adhesion sets and root indices  of every secondary piece
+    # Compute adhesion sets and root indices of every secondary piece
     for i,piece in enumerate(sec_pieces):
         log.info("{} {}".format(i, piece))
         log.info("  Leaves: {}".format(piece.leaves))

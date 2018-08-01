@@ -271,11 +271,11 @@ class Graph:
     def enum_patterns(self):
         found = set()
         for order in permutations(sorted(self)):
-            pat, Indexmap = self.to_pattern(order)
+            pat, imap = self.to_pattern(order)
             if pat in found:
                 continue
             found.add(pat)
-            yield pat, Indexmap
+            yield pat, imap
 
     def to_pattern(self, order):
         from pattern import Pattern
