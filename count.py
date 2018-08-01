@@ -142,6 +142,15 @@ class CDAG:
             else:
                 count_composite(i)
 
+        print()
+        print("Intermediate counts:")
+        for i in range(num_bases,num_bases+num_inter):
+            print(i, self.index[i].td_string(),)
+            for adh in adhesions[i]:
+                print("  ", adh, counts[adh][i])
+
+        print()
+        print("Final counts:")
         total = 0
         for i in range(num_bases):
             pattern_count = counts[tuple()][i]

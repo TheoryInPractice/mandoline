@@ -359,7 +359,6 @@ class TD:
         else:
             return ''.join(map(str, self._bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')
 
