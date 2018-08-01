@@ -145,7 +145,15 @@ class TD:
         return res
 
     def prefix(self):
+        raise RuntimeError("Deprecated")
         return tuple(self._sep[:self.depth])
+
+    def adhesion_size(self):
+        """
+            Returns the length of the root-path up to the
+            first branching vertex.
+        """
+        return len(self._sep)
 
     def compatible_with(self, order, level=0):
         prefix = "  "*level
@@ -215,7 +223,7 @@ class TD:
             res.add_arc(self._bag[-1], c._bag[0])
         return res
 
-    def to_piece(self):
+    def to_piece(self, pattern_size):
         from pattern import Pattern, Piece
         """
             Turns a _linear_ TD decomposition into a piece;
@@ -225,12 +233,17 @@ class TD:
         assert self.is_linear()
         order = list(self.orders())[0]
         LG, imap = self.to_graph().to_lgraph(order)
-        print(LG)
-        print(Pattern(LG))
-        pieces = Pattern(LG).decompose()
-        assert len(pieces) == 1
 
-        return pieces[0]
+        # This TD decomposition might describe a disconnected graph.
+        # We do know, however, that the final pattern is connected; hence
+        # every vertex that is not wreachable inside this decomposition
+        # _must_ be wreachable in order to be part of the pattern.
+        # The 'pattern_size' here informs the Pattern construction what
+        # the maximum possible wr-distance is for such disconnected parts.
+        pattern = Pattern.from_disconnected(LG, pattern_size)
+
+        piece = pattern.to_single_piece()
+        return piece
 
     def orders(self):
         for o in self.to_ditree().embeddings():
@@ -345,6 +358,7 @@ class TD:
             return ''.join(map(str, self._bag))
         else:
             return ''.join(map(str, self._bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')

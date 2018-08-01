@@ -659,6 +659,7 @@ class LGraph:
     
     def wreach_union(self, iu, min_dist, max_dist):
         res = []
+        max_dist = min(max_dist, len(self.wr)-1) 
         for d in range(min_dist, max_dist+1):
             res.extend(self.wr[d][iu])
         return res

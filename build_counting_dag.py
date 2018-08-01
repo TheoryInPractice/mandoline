@@ -287,16 +287,22 @@ def enumerate_merges(decompA, decompB):
                 seen_tdM.add(tdMerged)
 
                 # print("    {}  /  {}".format(tdM, tdM.td_string()))
+                assert tuple(tdMerged._sep[:len(rootPath)]) == tuple(rootPath)
                 yield graphMerged, tdMerged, mapping
 
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
-        
+                
     """
     prefix = " "*(4*depth)
     log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
     potential_edges = list(product(nodesA, nodesB))
+
+    # We add virtual root-path edges in order to preserve the root-path
+    # in the resulting decompositions.
+    rootPath = tuple(tdH._sep)
+    rootPathEdges = list(zip(rootPath[:-1],rootPath[1:]))
 
     if len(potential_edges) == 0:
         return
@@ -309,9 +315,10 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
             HH = H.copy()
             HH.add_edges(edges)
             log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
-            tdHH = TD.decompose(HH, o)
+            tdHH = TD.decompose(HH, o, rootPathEdges)
             if tdHH in seen_decomp:
                 continue
+            assert tuple(tdHH._sep[:len(rootPath)]) == tuple(rootPath)
             seen_decomp.add(tdHH)
             yield (HH, tdHH)
 

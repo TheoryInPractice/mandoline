@@ -43,6 +43,27 @@ class CDAG:
         self.merge_operations = None
         self.dependency_dag = None
 
+    def target_graph(self):
+        return self.graph
+
+    def count(self, LG):
+        return 
+        k = len(self.graph)
+        counts = defaultdict(lambda: defaultdict(int))
+        for i in self.pieces:
+            td = self.index[i]
+            piece = td.to_piece(k)
+            print(td.td_string(), self.adhesion_sizes[i])
+            for iu in LG:
+                for match in LG.match(iu, piece):
+                    print(match)
+                    for asize in self.adhesion_sizes[i]:
+                        adh = match.get_adhesion(asize)
+                        counts[adh][i] += 1
+
+        for adh in counts:
+            print(adh, counts[adh])
+
     @staticmethod
     def load(filename):
         res = CDAG()
@@ -124,19 +145,16 @@ class CDAG:
             assert (l,r) not in res.merge_operations or adh_size not in res.merge_operations[(l,r)]
             res.merge_operations[(l,r)][adh_size] = s
 
-        # Compute adhesion sizes. For base decompositions this is simply the
-        # length of the root-path until the first branching vertex; we then
-        # propagate this value downwards. The same holds for intermediate 
-        # decompositions; hence every decomposition might need to be counted for
-        # multiple adhesion sets (and thus sizes).
+        # Compute adhesion sizes. For base decompositions this is simply zero, meaning
+        # the global counter. For all other decompositions, the values are derived from
+        # the products they are involved in: if decompositions A and B merge together
+        # into decomposition C with a root-path of length r, then A and B need to be
+        # counted for adhesions of length r.
         res.adhesion_sizes = defaultdict(SortedSet)
         for i,td in res.base_decomps.items():
-            if td.is_linear():
-                res.adhesion_sizes[i].add(0) # Simply count
-            else:
-                res.adhesion_sizes[i].add(len(td._sep))
-            print(i,td,len(td._sep), res.dependency_dag.in_neighbours(i))
+            res.adhesion_sizes[i].add(0) # Simply count
 
+        # Now compute adhesion sizes for all other decompositions
         visited = set(res.base_decomps.keys())
         print(visited)
         frontier = res.dependency_dag.out_neighbours_set(visited)
@@ -146,10 +164,13 @@ class CDAG:
             print(frontier)
             for i in frontier:
                 for parent in res.dependency_dag.in_neighbours(i): 
-                    res.adhesion_sizes[i].update(res.adhesion_sizes[parent])
-                td = res.index.vertex_at(i)
-                if not td.is_linear():
-                    res.adhesion_sizes[i].add(len(td._sep))
+                    parent_adhesion = res.index[parent].adhesion_size()
+                    if parent_adhesion > res.index[i].adhesion_size():
+                        print("Decomp: ", res.index[i].td_string())
+                        print("Parent: ", res.index[parent].td_string())
+                        assert False
+                    res.adhesion_sizes[i].add(parent_adhesion)
+
 
             visited |= frontier
             frontier = res.dependency_dag.out_neighbours_set(visited)
@@ -159,11 +180,6 @@ class CDAG:
 
         return res
 
-    def target_graph(self):
-        return self.graph
-
-    def count(self, LG):
-        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts subgraph in G according to counting DAG file')
@@ -213,5 +229,5 @@ if __name__ == "__main__":
     LG.compute_wr(len(H)-1)
     log.info("Done.")
 
+    cdag.count(LG)
 
-    log.info("TODO: count")

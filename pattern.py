@@ -199,9 +199,14 @@ class PatternMatch:
         self._range_cache[i] = (lbound, rbound)
         return (lbound, rbound)
 
-
     def indices_to_vertices(self, indices):
         return [self.index_to_vertex[i] for i in sorted(indices)]
+
+    def get_adhesion(self, size):
+        """
+            Returns the 'size' first vertices matched here as a tuple.
+        """
+        return tuple([self.index_to_vertex[i] for i in range(size)])
 
     def __hash__(self):
         return self.index_to_vertex.__hash__()
@@ -253,13 +258,30 @@ class Pattern:
         # Note that a a distance 0 here indicates that a vertex is
         # in the in-neigbourhood of another vertex, a distance d indicates
         # that we need to compute wr[d] in order to see the connection.
-        for target in range(n):
-            self.wr_dist[target] = [None] * n
+        for root in range(n):
+            self.wr_dist[root] = [None] * n
             for d in range(n):
-                for iu in LG.wr[d][target]:
-                    self.wr_dist[target][iu] = d
+                for iu in LG.wr[d][root]:
+                    self.wr_dist[root][iu] = d
 
         self.cached_hash = self._compute_hash()
+
+    @staticmethod
+    def from_disconnected(LG, max_wr_dist):
+        res = Pattern(LG)
+        for root,row in enumerate(res.wr_dist):
+            # Every node past 'root' (including 'root') will have
+            # 'None' by definition. If we find 'None' _before_ 'root',
+            # we change it to max_wr_dist instead since we are promised
+            # that the underlying pattern is connected.
+            for i in range(root):
+                if row[i] == None:
+                    assert i < root
+                    row[i] = max_wr_dist
+
+        # In case the hash uses the wr_dist at some point
+        res.cached_hash = res._compute_hash()
+        return res
 
     def __len__(self):
         return len(self.wreach)
@@ -370,6 +392,17 @@ class Pattern:
             pieces.append(Piece(self, iu, roots[:i], wreach))
             prev_leaves = wreach
         return pieces
+
+    def to_single_piece(self):
+        """
+            Converts this pattern into a single piece. We need this
+            for the counting part, where we encounter disconnected Patterns
+            for which we know that they are nonetheless inside a single wreach
+            set.
+        """
+        root = len(self)-1
+        leaves = list(range(root))
+        return Piece(self, root, [], leaves)
 
     def __repr__(self):
         return 'PT'+','.join(map(lambda s: str(list(s)),self.in_neighbours)) 
