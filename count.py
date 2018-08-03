@@ -59,18 +59,23 @@ class CDAG:
         num_bases = len(self.base_decomps)
 
         def count_linear(i):
+            print()
             print("Counting", i, self.index[i].td_string(), "(linear)")
             td = self.index[i]
             piece = td.to_piece(k)
+            totalcount = 0
             for iu in LG:
                 for match in LG.match(iu, piece):
+                    print(match)
                     for asize in self.adhesion_sizes[i]:
                         adh = match.get_adhesion(asize)
                         counts[adh][i] += 1
+                        totalcount += 1
                         adhesions[i].add(adh)
             print("Adhesions for {} are {}".format(i, adhesions[i]))
 
         def count_composite(i):
+            print()
             print("Counting", i, self.index[i].td_string())
             left, right, subisoslr, subisosrl = self.product_edges[i]
             subtract = self.subtract_edges[i]
@@ -157,11 +162,24 @@ class CDAG:
                 count_composite(i)
 
         print()
+        print("Linear counts:")
+        for i in range(num_bases+num_inter,num_bases+num_inter+num_pieces):
+            # We can compute the total count by fixing one adhesion size (say, the smallest) and 
+            # sum the counts for those adhesions only.
+            adh_size = min(self.adhesion_sizes[i])
+            print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
+            # for adh in adhesions[i]:
+            #     print("  ", adh, counts[adh][i])
+
+        print()
         print("Intermediate counts:")
         for i in range(num_bases,num_bases+num_inter):
-            print(i, self.index[i].td_string(),)
-            for adh in adhesions[i]:
-                print("  ", adh, counts[adh][i])
+            # We can compute the total count by fixing one adhesion size (say, the smallest) and 
+            # sum the counts for those adhesions only.            
+            adh_size = min(self.adhesion_sizes[i])
+            print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
+            # for adh in adhesions[i]:
+            #     print("  ", adh, counts[adh][i])
 
         print()
         print("Final counts:")
