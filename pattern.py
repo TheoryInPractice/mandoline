@@ -6,6 +6,7 @@ import bisect
 from sortedcontainers import SortedSet
 
 import logging
+from helpers import short_str
 
 log = logging.getLogger(__name__)
 
@@ -405,7 +406,7 @@ class Pattern:
         return Piece(self, root, [], leaves)
 
     def __repr__(self):
-        return 'PT'+','.join(map(lambda s: str(list(s)),self.in_neighbours)) 
+        return 'PT'+','.join(map(lambda s: short_str(list(s)),self.in_neighbours)) 
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)
