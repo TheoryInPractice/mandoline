@@ -116,7 +116,7 @@ class CDAG:
                     continue
 
                 c_left, c_right = counts[adh][left], counts[adh][right]
-                c_subtract = sum([counts[adh][j] for j in subtract_ids])
+                c_subtract = sum([m*counts[adh][j] for j,m in self.subtract_edges[i]])
                 if left == right:
                     c = (c_left * (c_right-1)) // 2
                 else:
@@ -184,8 +184,8 @@ class CDAG:
             # sum the counts for those adhesions only.            
             adh_size = min(self.adhesion_sizes[i])
             print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
-            # for adh in adhesions[i]:
-            #     print("  ", adh, counts[adh][i])
+            for adh in adhesions[i]:
+                print("  ", adh, counts[adh][i])
 
         print()
         print("Final counts:")
@@ -264,7 +264,6 @@ class CDAG:
             res.dependency_dag.add_arc(s, l)
             res.dependency_dag.add_arc(s, r)
         for s,N in subtract_edges.items():
-            print(">>>",s,N)
             for t,_ in N:
                 res.dependency_dag.add_arc(s,t)           
         res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
