@@ -1,4 +1,5 @@
-from helpers import short_str
+import unittest
+from helpers import short_str, pairhash
 
 class Interval:
     def __init__(self, low, high):
@@ -26,6 +27,7 @@ class Bimap:
     def __init__(self):
         self.to = {}
         self.fro = {}
+        self.hash = 14695981039346656037
 
     def __contains__(self, u):
         return u in self.to or u in self.fro
@@ -39,6 +41,19 @@ class Bimap:
         if u in self.fro:
             return self.fro[u]
         return u
+
+    def __hash__(self):
+        return self.hash
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        if self.hash != other.hash:
+            return False
+        if self.to.items() != other.to.items():
+            return False        
+        return True
 
     def items(self):
         return self.to.items()
@@ -58,6 +73,7 @@ class Bimap:
             return
         self.to[u] = v
         self.fro[v] = u
+        self.hash ^= pairhash(u,v)
 
     def put_all(self, pairs):
         for u,v in pairs:
@@ -114,3 +130,31 @@ class Indexmap:
 
     def __repr__(self):
         return 'IM['+','.join(map(str,self.index_to_vertex))+']'        
+
+
+class TestBimap(unittest.TestCase):            
+    
+    def test_hashing_equals(self):
+        mpA = Bimap()
+        mpB = Bimap()
+        self.assertEqual(mpA.hash, mpB.hash)
+        self.assertEqual(hash(mpA), hash(mpB))
+        self.assertEqual(mpA, mpB)
+
+        mpA.put_all([(0,1),(2,3),(4,5),(6,7),(100,200)])
+        self.assertNotEqual(mpA, mpB)
+
+        mpB.put_all(reversed([(0,1),(2,3),(4,5),(6,7)]))
+        self.assertNotEqual(mpA, mpB)
+        mpB.put(100,200)
+
+        self.assertEqual(mpA, mpB)
+        mpB.put(10,20)
+
+        self.assertNotEqual(mpA, mpB)
+        mpA.put(20,10)
+        self.assertNotEqual(mpA, mpB)
+
+
+if __name__ == '__main__':
+    unittest.main()
