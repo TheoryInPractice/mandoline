@@ -8,7 +8,7 @@ import argparse
 import itertools
 import sys
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 
@@ -59,10 +59,10 @@ class Recorder:
             self.product_edges_count += 1
         self.product_edges[td_result] = (td_left, td_right, subisosLintoR, subisosRintoL)
 
-    def count_subtract(self, td_count, td_subtract):
+    def count_subtract(self, td_count, td_subtract, multi):
         if td_subtract not in self.subtract_edges[td_count]:
             self.subtract_edges_count += 1
-        self.subtract_edges[td_count].add(td_subtract)
+        self.subtract_edges[td_count].add((td_subtract, multi))
 
     def report(self):
         log.info("Recorded %d linear pieces, %d decompositions of which %d are the basis.", len(self.pieces), len(self.decomps), len(self.base_decomps))
@@ -85,7 +85,7 @@ class Recorder:
         for td in nodes:
             left, right, *_ =  self.product_edges[td]
             out_neighbours = set([left, right])
-            out_neighbours.update(self.subtract_edges[td])
+            out_neighbours.update([t for (t,_) in self.subtract_edges[td]])
             out_neighbours = out_neighbours & nodes
             for other in out_neighbours:
                 dag.add_arc(td, other)
@@ -125,11 +125,11 @@ class Recorder:
                 assert td in index
                 assert left in index
                 assert right in index
-                subtr_indices = [str(index[td_sub]) for td_sub in self.subtract_edges[td]]
+                subtr_indices = [str(index[td_sub])+"|"+str(multi) for td_sub, multi in self.subtract_edges[td]]
                 edges_rows.append( (index[td], index[left], subisosLintoR, index[right], subisosRintoL, ' '.join(subtr_indices)) )
             
             for e in sorted(edges_rows):
-                f.write('{} {} ({}) {} ({}) {}\n'.format(*e))
+                f.write('{} {}|{} {}|{} {}\n'.format(*e))
         pass
 
 def powerset(iterable):
@@ -187,7 +187,7 @@ def _simulate_count_rec(R, H, td, depth):
 
         subisosAintoB = 0
         subisosBintoA = 0
-        for (H, tdH, mapping) in enumerate_merges(past_merged, current_piece):   
+        for (H, tdH, mapping, multi) in enumerate_merges(past_merged, current_piece):   
             nodesAA = nodesA - mapping.source()
             nodesBB = nodesB - mapping.target()
 
@@ -203,7 +203,7 @@ def _simulate_count_rec(R, H, td, depth):
 
             for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
                 _simulate_count_rec(R, HH, tdHH, depth+1)
-                R.count_subtract(result, tdHH)
+                R.count_subtract(result, tdHH, multi)
 
         R.count_product(past_merged, current_piece, result, subisosAintoB, subisosBintoA)
 
@@ -263,6 +263,8 @@ def enumerate_merges(decompA, decompB):
     # print(candidates)
 
     # Now try all subsets of nodesA, including the empty set
+    results = []
+    multiplicities = Counter()
     for sourceA in powerset(nodesA):
         candidate_sets = [candidates[x] for x in sourceA]
         subgraphA = graphJoint.subgraph(sourceA)
@@ -272,7 +274,8 @@ def enumerate_merges(decompA, decompB):
 
             mapping = Bimap()
             mapping.put_all(zip(sourceA, targetB))
-            # print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
+
+            print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
 
             # Check that subgraphs induced by 'sourceA' and 'sourceB' are the same
             # under the mapping, e.g. that the mapping is a isomorphism.
@@ -302,19 +305,27 @@ def enumerate_merges(decompA, decompB):
 
             # Decompose resulting graph according to DAG embeddings
             # print("  TD decompositions of {}:".format(graphMerged))
-            seen_tdM = set()
+            seen_tdM = set() 
             for o in dagMerged.embeddings():
                 # We decompose 'graphMerged' with the additional constraint that
                 # the root-path must stay a prefix of the resulting decomposition
                 # (by using virtual edges along that path)
                 tdMerged = TD.decompose(graphMerged, o, rootPathEdges)
+
+                # Some embeddings will produce the same td decomposition, but in this
+                # inner loop we consider every decomposition only once.
                 if tdMerged in seen_tdM:
                     continue
                 seen_tdM.add(tdMerged)
 
-                # print("    {}  /  {}".format(tdM, tdM.td_string()))
-                assert tuple(tdMerged._sep[:len(rootPath)]) == tuple(rootPath)
-                yield graphMerged, tdMerged, mapping
+                if tdMerged not in multiplicities:
+                    assert tuple(tdMerged._sep[:len(rootPath)]) == tuple(rootPath)
+                    results.append((graphMerged, tdMerged, mapping))
+                multiplicities[tdMerged] += 1
+                print(multiplicities[tdMerged], decompA.td_string(), decompB.td_string(), mapping, tdMerged.td_string())                    
+
+    for (graphMerged, tdMerged, mapping) in results:
+        yield graphMerged, tdMerged, mapping, multiplicities[tdMerged]
 
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):

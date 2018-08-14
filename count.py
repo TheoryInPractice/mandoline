@@ -78,26 +78,32 @@ class CDAG:
             print()
             print("Counting", i, self.index[i].td_string())
             left, right, subisoslr, subisosrl = self.product_edges[i]
-            subtract = self.subtract_edges[i]
+
+            if len(self.subtract_edges[i]) > 0:
+                subtract_ids, subtract_multis = zip(*self.subtract_edges[i])
+            else:
+                subtract_ids, subtract_multis = [], []
 
             td, td_left, td_right = self.index[i], self.index[left], self.index[right]
-            td_subtract = self.index.vertices_at(subtract)
-            td_subtract_str = '; '.join(map(lambda t: t.td_string(), td_subtract))
+            td_subtract = self.index.vertices_at(subtract_ids)
+            # td_subtract_str = '; '.join(map(lambda t: t.td_string(), td_subtract))
+            td_subtract_str = ' '.join([ '- {}#{}'.format(m,self.index.vertex_at(x).td_string()) for x,m in zip(subtract_ids, subtract_multis)])
+            subtract_str = ' '.join([ '- {}#{}'.format(m,x) for x,m in zip(subtract_ids, subtract_multis)])
             if subisoslr == 0 and subisosrl == 0:
-                print("#{} = #{} x #{} - #SUM[{}]".format(i, left, right, subtract))
-                print("#{} = #{} x #{} - #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
+                print("#{} = #{} x #{} {}".format(i, left, right, subtract_str))
+                print("#{} = #{} x #{} {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
             elif left == right:
                 # This is the only case in which both subiso values can be nonzero
-                print("#{} = (#{} x (#{}-1))/2 - #SUM[{}]".format(i, left, right, subtract))
-                print("#{} = (#{} x (#{}-1))/2 - #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_left.td_string(), td_subtract_str))
+                print("#{} = (#{} x (#{}-1))/2 {}".format(i, left, right, subtract_str))
+                print("#{} = (#{} x (#{}-1))/2 {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_left.td_string(), td_subtract_str))
             elif subisosrl != 0:
                 assert subisoslr == 0
-                print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(i, left, right, subisosrl, left, subtract))
-                print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), subisosrl, td_left.td_string(), td_subtract_str))
+                print("#{} = #{} x #{} - {}#{} {}".format(i, left, right, subisosrl, left, subtract_str))
+                print("#{} = #{} x #{} - {}#{} {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), subisosrl, td_left.td_string(), td_subtract_str))
             elif subisoslr != 0:
                 assert subisosrl == 0
-                print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(i, left, right, subisoslr, right, subtract))
-                print("#{} = #{} x #{} - {}x#{}- #SUM[{}]".format(td.td_string(), td_left.td_string(), td_right.td_string(), subisoslr, td_right.td_string(), td_subtract_str))
+                print("#{} = #{} x #{} - {}#{} - {}".format(i, left, right, subisoslr, right, subtract_str))
+                print("#{} = #{} x #{} - {}#{} - {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), subisoslr, td_right.td_string(), td_subtract_str))
 
 
             print("Left pattern found for {}".format(adhesions[left]))
@@ -110,7 +116,7 @@ class CDAG:
                     continue
 
                 c_left, c_right = counts[adh][left], counts[adh][right]
-                c_subtract = sum([counts[adh][j] for j in subtract])
+                c_subtract = sum([counts[adh][j] for j in subtract_ids])
                 if left == right:
                     c = (c_left * (c_right-1)) // 2
                 else:
@@ -217,11 +223,14 @@ class CDAG:
             pieces[_id] = TD.from_string(td_str)
 
         def parse_edge(line):
-            source, left, subisoslr, right, subisosrl, *sub = list(line.split())
+            source, left_str, right_str, *sub = list(line.split())
+            left, subisoslr = left_str.split('|')
+            right, subisosrl = right_str.split('|')
             source, left, right = int(source), int(left), int(right)
-            subisoslr = int(subisoslr[1:-1]) # This value is surrounded by parantheses
-            subisosrl = int(subisosrl[1:-1]) # This value is surrounded by parantheses
-            sub = list(map(int, sub))
+            subisoslr, subisosrl = int(subisoslr), int(subisosrl)
+
+            sub = map(lambda s: tuple(s.split('|')), sub)
+            sub = [(int(a), int(b)) for a,b in sub]
 
             assert source not in product_edges
             assert source not in subtract_edges
@@ -255,7 +264,8 @@ class CDAG:
             res.dependency_dag.add_arc(s, l)
             res.dependency_dag.add_arc(s, r)
         for s,N in subtract_edges.items():
-            for t in N:
+            print(">>>",s,N)
+            for t,_ in N:
                 res.dependency_dag.add_arc(s,t)           
         res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
 
