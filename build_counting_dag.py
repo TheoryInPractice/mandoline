@@ -206,6 +206,9 @@ def _simulate_count_rec(R, H, td, depth):
             for (HH, tdHH, edges) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
                 _simulate_count_rec(R, HH, tdHH, depth+1)
                 coeff = compute_coefficient(result, nodesA, nodesB, tdHH)
+                if tdA == tdB:
+                    assert coeff % 2 == 0
+                    coeff //= 2 
                 R.count_subtract(result, tdHH, coeff)
 
         R.count_product(tdA, tdB, result, subisosAintoB, subisosBintoA)
