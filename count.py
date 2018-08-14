@@ -66,7 +66,7 @@ class CDAG:
             totalcount = 0
             for iu in LG:
                 for match in LG.match(iu, piece):
-                    print(match)
+                    # print(match)
                     for asize in self.adhesion_sizes[i]:
                         adh = match.get_adhesion(asize)
                         counts[adh][i] += 1
@@ -121,7 +121,7 @@ class CDAG:
                     c = (c_left * (c_right-1)) // 2
                 else:
                     c = c_left * c_right 
-                    # Only one of the two subisos* value is nonzero since we handlded the case
+                    # Only one of the two subisos* value is nonzero since we handled the case
                     # when left == right above
                     c -= subisoslr*c_right
                     c -= subisosrl*c_left

@@ -125,8 +125,9 @@ class Recorder:
                 assert td in index
                 assert left in index
                 assert right in index
-                subtr_indices = [str(index[td_sub])+"|"+str(multi) for td_sub, multi in self.subtract_edges[td]]
-                edges_rows.append( (index[td], index[left], subisosLintoR, index[right], subisosRintoL, ' '.join(subtr_indices)) )
+                subtr_sorted = sorted([(index[td_sub],multi) for td_sub,multi in self.subtract_edges[td]])
+                subtr_tokens = [str(x)+"|"+str(multi) for x, multi in subtr_sorted]
+                edges_rows.append( (index[td], index[left], subisosLintoR, index[right], subisosRintoL, ' '.join(subtr_tokens)) )
             
             for e in sorted(edges_rows):
                 f.write('{} {}|{} {}|{} {}\n'.format(*e))
@@ -177,22 +178,22 @@ def _simulate_count_rec(R, H, td, depth):
 
     log.debug("%sNow we fold-count with the remaining pieces.", prefix)
 
-    for current_piece, result, past_merged in zip(splits[1:], merged[1:], merged):
-        log.debug("%sThe next piece is %s and we first count it.", prefix, current_piece)
-        _simulate_count_rec(R, H, current_piece, depth+1)
+    for tdB, result, tdA in zip(splits[1:], merged[1:], merged):
+        log.debug("%sThe next piece is %s and we first count it.", prefix, tdB)
+        _simulate_count_rec(R, H, tdB, depth+1)
 
-        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, past_merged, current_piece)   
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, tdA, tdB)   
 
-        nodesA, nodesB, _ = td_overlap(past_merged, current_piece)
+        nodesA, nodesB, _ = td_overlap(tdA, tdB)
 
         subisosAintoB = 0
         subisosBintoA = 0
-        for (H, tdH, mapping, multi) in enumerate_merges(past_merged, current_piece):   
+        for (H, tdH, mapping) in enumerate_merges(tdA, tdB):   
             nodesAA = nodesA - mapping.source()
             nodesBB = nodesB - mapping.target()
 
-            # If nodesBB is empty we have a complete isomorphism from current_piece
-            # into a subset of past_merged. We need to count these!
+            # If nodesBB is empty we have a complete isomorphism from tdB
+            # into a subset of tdA. We need to count these!
             if len(nodesBB) == 0:
                 subisosBintoA += 1
 
@@ -201,11 +202,13 @@ def _simulate_count_rec(R, H, td, depth):
 
             _simulate_count_rec(R, H, tdH, depth+1)
 
-            for (HH, tdHH) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
+            # TODO: Is 'mult' needed? Do we take he product with 'emult'...?
+            for (HH, tdHH, edges) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
                 _simulate_count_rec(R, HH, tdHH, depth+1)
-                R.count_subtract(result, tdHH, multi)
+                coeff = compute_coefficient(result, nodesA, nodesB, tdHH)
+                R.count_subtract(result, tdHH, coeff)
 
-        R.count_product(past_merged, current_piece, result, subisosAintoB, subisosBintoA)
+        R.count_product(tdA, tdB, result, subisosAintoB, subisosBintoA)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
@@ -263,8 +266,7 @@ def enumerate_merges(decompA, decompB):
     # print(candidates)
 
     # Now try all subsets of nodesA, including the empty set
-    results = []
-    multiplicities = Counter()
+    seen_tdM = set()    
     for sourceA in powerset(nodesA):
         candidate_sets = [candidates[x] for x in sourceA]
         subgraphA = graphJoint.subgraph(sourceA)
@@ -275,14 +277,14 @@ def enumerate_merges(decompA, decompB):
             mapping = Bimap()
             mapping.put_all(zip(sourceA, targetB))
 
-            print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
+            # print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
 
             # Check that subgraphs induced by 'sourceA' and 'sourceB' are the same
             # under the mapping, e.g. that the mapping is a isomorphism.
             subgraphB = graphJoint.subgraph(targetB)
 
             if subgraphA.relabel(mapping) != subgraphB:
-                continue # Not a isomorphism
+                continue # Not an isomorphism
 
             # print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
             
@@ -304,8 +306,7 @@ def enumerate_merges(decompA, decompB):
             # print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
             # Decompose resulting graph according to DAG embeddings
-            # print("  TD decompositions of {}:".format(graphMerged))
-            seen_tdM = set() 
+            # print("  TD decompositions of {}:".format(graphMerged)) 
             for o in dagMerged.embeddings():
                 # We decompose 'graphMerged' with the additional constraint that
                 # the root-path must stay a prefix of the resulting decomposition
@@ -316,17 +317,7 @@ def enumerate_merges(decompA, decompB):
                 # inner loop we consider every decomposition only once.
                 if tdMerged in seen_tdM:
                     continue
-                seen_tdM.add(tdMerged)
-
-                if tdMerged not in multiplicities:
-                    assert tuple(tdMerged._sep[:len(rootPath)]) == tuple(rootPath)
-                    results.append((graphMerged, tdMerged, mapping))
-                multiplicities[tdMerged] += 1
-                print(multiplicities[tdMerged], decompA.td_string(), decompB.td_string(), mapping, tdMerged.td_string())                    
-
-    for (graphMerged, tdMerged, mapping) in results:
-        yield graphMerged, tdMerged, mapping, multiplicities[tdMerged]
-
+                yield graphMerged, tdMerged, mapping                  
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
@@ -347,9 +338,9 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
         return
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
-    seen_decomp = set()
-    for o in tdH.suborders(H):
-        for edges in powerset_nonempty(potential_edges):
+    for edges in powerset_nonempty(potential_edges):    
+        seen_decomp = set()
+        for o in tdH.suborders(H):
             assert len(o) > 0
             HH = H.copy()
             HH.add_edges(edges)
@@ -359,8 +350,99 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
                 continue
             assert tuple(tdHH._sep[:len(rootPath)]) == tuple(rootPath)
             seen_decomp.add(tdHH)
-            yield (HH, tdHH)
+            yield HH, tdHH, edges
 
+
+def compute_coefficient(td, nodesA, nodesB, defect):
+    """
+        Returns how many mappings from 'td' to 'defect' there
+        are such that the two pieces induced by (root-path + nodesA) and (root-path + nodesB)
+        are individually preserved (but if td != defect they will necessarily either
+        intersect or be connected by an unwanted edge). Note that we only need
+        to consider mappings that are surjective, e.g. all nodes of 'defect' must be hit.
+    """
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    print(td, list(nodesA), list(nodesB), defect)
+
+    rootPath = tuple(td._sep)
+    rootPathSet = set(rootPath)
+    nodesA, nodesB = list(nodesA), list(nodesB) # We need a consistent iteration order
+    defectNodes = set(defect.nodes()) - rootPathSet
+    graph = td.to_graph() 
+    graphDefect = defect.to_graph()
+    subgraphA = graph.subgraph(set(nodesA))
+    subgraphB = graph.subgraph(set(nodesB))
+
+    assert rootPath == tuple(defect._sep[:len(rootPath)]) # Ensure decompositions agree on labelling of root-path
+
+    # Make list of potential mapping candidates; the constraint here
+    # is that source and target vertex must agree on the root-path neighbourhood.
+    candidates = defaultdict(set)
+    for s in chain(nodesA, nodesB):
+        rpNeighS = td.in_neighbours(s) & rootPathSet
+        for t in (defect.nodes() - rootPathSet):
+            rpNeighT = defect.in_neighbours(t) & rootPathSet
+            if rpNeighS == rpNeighT:
+                candidates[s].add(t)    
+    print("Candidates:", dict(candidates))
+    print("Need to cover nodes", defectNodes)
+
+    candidateSetsA = [candidates[x] for x in nodesA]
+    candidateSetsB = [candidates[x] for x in nodesB]
+    count = 0
+    for choicesA in product(*candidateSetsA):
+        mappingA = Bimap()
+        mappingA.put_all(zip(nodesA, choicesA))
+
+        # Ensure that 'choicesA' induce a subgraph in 'graphDefect' that is
+        # isomorphic the subgraph induced by 'nodesA' in 'graph'. Note that edges
+        # towards the root-path are not tested here, those are taken care of by
+        # our selection of candidates.
+        if subgraphA.relabel(mappingA) != graphDefect.subgraph(choicesA):
+            continue
+
+        # Check whether mapping is order-compatible; meaning that valid orderings
+        # of the target nodes according the 'defect' decomposition must all be
+        # compatible with the original decomposition. 
+        # TODO: This could probably done more efficiently by considering the induced
+        #       posets.
+        orderCompatible = True
+        for o in defect.suborders(choicesA):
+            oo = [mappingA[x] for x in o]  
+            if not td.compatible_with(oo):
+                orderCompatible = False
+                break
+
+        if not orderCompatible:
+            continue
+
+        for choicesB in product(*candidateSetsB):
+            mappingB = Bimap()
+            mappingB.put_all(zip(nodesB, choicesB))
+            targets = set(choicesA) | set(choicesB)
+            if targets != defectNodes:
+                continue
+
+            # Similar to above, but for our mapping of 'choicesB'.
+            if subgraphB.relabel(mappingB) != graphDefect.subgraph(choicesB):
+                continue
+
+            orderCompatible = True
+            for o in defect.suborders(choicesB):
+                oo = [mappingB[x] for x in o]  
+                if not td.compatible_with(oo):
+                    orderCompatible = False
+                    break
+
+            if not orderCompatible:
+                continue
+
+            # Whatever remains is a valid mapping!
+            count += 1
+
+
+    print("<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    return count
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Counts H in G')
@@ -391,22 +473,6 @@ if __name__ == "__main__":
     H = load_graph(args.H)
     log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
     log.info(H)
-
-    # G = load_graph(args.G)
-    # log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
-
-    # if args.no_reduction:
-    #     log.info("Skipping recution procedure because flag --no-reduction was set")
-    # else:
-    #     mindeg = min(H.degree_sequence()) 
-    #     log.info("Computing {}-core of host graph".format(mindeg))
-    #     G = G.compute_core(mindeg)
-    #     log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
-
-    # log.info("Computing {}-wcol sets".format(len(H)-1))
-    # LG, mapping = G.to_lgraph()
-    # LG.compute_wr(len(H)-1)
-    # log.info("Done.")
 
     seen = set()
     R = Recorder()
