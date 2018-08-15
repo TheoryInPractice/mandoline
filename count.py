@@ -14,7 +14,6 @@ from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 import bisect
 import math, random
-import cairo
 
 from tree_decompose import TD, short_str
 
@@ -29,7 +28,7 @@ class CDAG:
 
         # The three types of decompositions. 'base_decomps'
         # are those we want to count (via inclusion/exclusion);
-        # 'decomps' are those intermediate decompositions which we 
+        # 'decomps' are those intermediate decompositions which we
         # have to count first to do so (also via inclusion/exclusion) and
         # 'pieces' are _linear_ TD decompositions that can actually be counted
         # directly in the graph.
@@ -120,7 +119,7 @@ class CDAG:
                 if left == right:
                     c = (c_left * (c_right-1)) // 2
                 else:
-                    c = c_left * c_right 
+                    c = c_left * c_right
                     # Only one of the two subisos* value is nonzero since we handled the case
                     # when left == right above
                     c -= subisoslr*c_right
@@ -157,7 +156,7 @@ class CDAG:
         for i in reversed(range(num_bases,num_bases+num_inter)):
             assert i in self.decomps
             count_composite(i)
-           
+
         # (num_bases-1)..0
         for i in reversed(range(num_bases)):
             assert i in self.base_decomps
@@ -170,7 +169,7 @@ class CDAG:
         print()
         print("Linear counts:")
         for i in range(num_bases+num_inter,num_bases+num_inter+num_pieces):
-            # We can compute the total count by fixing one adhesion size (say, the smallest) and 
+            # We can compute the total count by fixing one adhesion size (say, the smallest) and
             # sum the counts for those adhesions only.
             adh_size = min(self.adhesion_sizes[i])
             print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
@@ -180,8 +179,8 @@ class CDAG:
         print()
         print("Intermediate counts:")
         for i in range(num_bases,num_bases+num_inter):
-            # We can compute the total count by fixing one adhesion size (say, the smallest) and 
-            # sum the counts for those adhesions only.            
+            # We can compute the total count by fixing one adhesion size (say, the smallest) and
+            # sum the counts for those adhesions only.
             adh_size = min(self.adhesion_sizes[i])
             print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
             for adh in adhesions[i]:
@@ -234,7 +233,7 @@ class CDAG:
 
             assert source not in product_edges
             assert source not in subtract_edges
-            assert source != left and source != right            
+            assert source != left and source != right
             product_edges[source] = (left, right, subisoslr, subisosrl)
             subtract_edges[source].update(sub)
 
@@ -265,7 +264,7 @@ class CDAG:
             res.dependency_dag.add_arc(s, r)
         for s,N in subtract_edges.items():
             for t,_ in N:
-                res.dependency_dag.add_arc(s,t)           
+                res.dependency_dag.add_arc(s,t)
         res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
 
         # Sanity checks: base_decomps should be sources, pieces should be sinks
@@ -276,7 +275,7 @@ class CDAG:
         for i in pieces:
             assert res.dependency_dag.out_degree(i) == 0
         for i,j in res.dependency_dag.arcs():
-            assert i < j 
+            assert i < j
 
         res.base_decomps = base_decomps
         res.decomps = decomps
@@ -317,7 +316,7 @@ class CDAG:
 
         while len(frontier) != 0:
             for i in frontier:
-                for parent in res.dependency_dag.in_neighbours(i): 
+                for parent in res.dependency_dag.in_neighbours(i):
                     parent_adhesion = res.index[parent].adhesion_size()
                     if parent_adhesion > res.index[i].adhesion_size():
                         # This issue should be solved since commit a8202d9.
@@ -341,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true' )
-    parser.add_argument('--no-reduction', action='store_true' )    
+    parser.add_argument('--no-reduction', action='store_true' )
     parser.add_argument('--output', help='Output file for counting DAG' )
 
     args = parser.parse_args()
@@ -372,7 +371,7 @@ if __name__ == "__main__":
     if args.no_reduction:
         log.info("Skipping recution procedure because flag --no-reduction was set")
     else:
-        mindeg = min(H.degree_sequence()) 
+        mindeg = min(H.degree_sequence())
         log.info("Computing {}-core of host graph".format(mindeg))
         G = G.compute_core(mindeg)
         log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
@@ -383,4 +382,3 @@ if __name__ == "__main__":
     log.info("Done.")
 
     cdag.count(LG)
-
