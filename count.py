@@ -272,7 +272,12 @@ class CDAG:
         # and the indices provide a topological embedding for the graph (hence proving
         # that it is indeed a DAG).
         for i in base_decomps:
-            assert res.dependency_dag.in_degree(i) == 0
+            assert res.dependency_dag.in_degree(i) == 0 
+            if res.dependency_dag.out_degree(i) == 0:
+                assert  res.index[i].is_linear()
+        for i in decomps:
+            assert res.dependency_dag.in_degree(i) > 0, 'Decomp ({}) {} has in-degree zero'.format(i, res.index[i].td_string())
+            assert res.dependency_dag.out_degree(i) > 0
         for i in pieces:
             assert res.dependency_dag.out_degree(i) == 0
         for i,j in res.dependency_dag.arcs():

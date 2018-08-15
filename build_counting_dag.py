@@ -149,7 +149,7 @@ def simulate_count(R, H, td):
 
 def _simulate_count_rec(R, H, td, depth):
     prefix = " "*(4*depth)
-    log.debug("%sWe want to count %s (%s) for adhesion size %s", prefix, td.td_string(), str(td))
+    log.debug("%sWe want to count %s (%s) for adhesion size %s", prefix, td.td_string(), str(td), len(td._sep))
 
     split_depth = td.adhesion_size()
     splits = list(td.split())
@@ -200,14 +200,22 @@ def _simulate_count_rec(R, H, td, depth):
             if len(nodesAA) == 0:
                 subisosAintoB += 1
 
-            _simulate_count_rec(R, H, tdH, depth+1)
+            if tdH != td:
+                # This is a proper merge and we need to subtract-count it
+                _simulate_count_rec(R, H, tdH, depth+1)
+                coeff = compute_coefficient(result, nodesA, nodesB, tdH)
+                if tdA == tdB:
+                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH.td_string(), tdHH.td_string(), coeff)
+                    coeff //= 2 
+                R.count_subtract(result, tdH, coeff)                
 
-            # TODO: Is 'mult' needed? Do we take he product with 'emult'...?
+            # Enumerate additional cases with additional edges
             for (HH, tdHH, edges) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
+                assert len(edges) != 0
                 _simulate_count_rec(R, HH, tdHH, depth+1)
                 coeff = compute_coefficient(result, nodesA, nodesB, tdHH)
                 if tdA == tdB:
-                    assert coeff % 2 == 0
+                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH.td_string(), tdHH.td_string(), coeff)
                     coeff //= 2 
                 R.count_subtract(result, tdHH, coeff)
 
@@ -364,9 +372,6 @@ def compute_coefficient(td, nodesA, nodesB, defect):
         intersect or be connected by an unwanted edge). Note that we only need
         to consider mappings that are surjective, e.g. all nodes of 'defect' must be hit.
     """
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-    print(td, list(nodesA), list(nodesB), defect)
-
     rootPath = tuple(td._sep)
     rootPathSet = set(rootPath)
     nodesA, nodesB = list(nodesA), list(nodesB) # We need a consistent iteration order
@@ -387,15 +392,18 @@ def compute_coefficient(td, nodesA, nodesB, defect):
             rpNeighT = defect.in_neighbours(t) & rootPathSet
             if rpNeighS == rpNeighT:
                 candidates[s].add(t)    
-    print("Candidates:", dict(candidates))
-    print("Need to cover nodes", defectNodes)
+    # print("Candidates:", dict(candidates))
+    # print("Need to cover nodes", defectNodes)
 
     candidateSetsA = [candidates[x] for x in nodesA]
     candidateSetsB = [candidates[x] for x in nodesB]
     count = 0
     for choicesA in product(*candidateSetsA):
-        mappingA = Bimap()
-        mappingA.put_all(zip(nodesA, choicesA))
+        if len(set(choicesA)) != len(nodesA):
+            continue # Not a bijection
+
+        mappingA = dict(zip(nodesA, choicesA))
+        mappingArev = dict(zip(choicesA, nodesA))
 
         # Ensure that 'choicesA' induce a subgraph in 'graphDefect' that is
         # isomorphic the subgraph induced by 'nodesA' in 'graph'. Note that edges
@@ -411,7 +419,7 @@ def compute_coefficient(td, nodesA, nodesB, defect):
         #       posets.
         orderCompatible = True
         for o in defect.suborders(choicesA):
-            oo = [mappingA[x] for x in o]  
+            oo = [mappingArev[x] for x in o]  
             if not td.compatible_with(oo):
                 orderCompatible = False
                 break
@@ -420,8 +428,11 @@ def compute_coefficient(td, nodesA, nodesB, defect):
             continue
 
         for choicesB in product(*candidateSetsB):
-            mappingB = Bimap()
-            mappingB.put_all(zip(nodesB, choicesB))
+            if len(set(choicesB)) != len(nodesB):
+                continue # Not a bijection
+
+            mappingB = dict(zip(nodesB, choicesB))
+            mappingBrev = dict(zip(choicesB, nodesB))
             targets = set(choicesA) | set(choicesB)
             if targets != defectNodes:
                 continue
@@ -432,7 +443,7 @@ def compute_coefficient(td, nodesA, nodesB, defect):
 
             orderCompatible = True
             for o in defect.suborders(choicesB):
-                oo = [mappingB[x] for x in o]  
+                oo = [mappingBrev[x] for x in o]  
                 if not td.compatible_with(oo):
                     orderCompatible = False
                     break
@@ -443,8 +454,6 @@ def compute_coefficient(td, nodesA, nodesB, defect):
             # Whatever remains is a valid mapping!
             count += 1
 
-
-    print("<<<<<<<<<<<<<<<<<<<<<<<<<<")
     return count
 
 if __name__ == "__main__":
