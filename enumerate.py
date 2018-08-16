@@ -11,7 +11,6 @@ from collections import defaultdict
 from sortedcontainers import SortedSet
 import bisect
 import math, random
-import cairo
 
 import logging
 
@@ -38,7 +37,7 @@ class MatchValidator:
         self.matches = set()
 
     def record(self, match):
-        self.matches.add(match)                
+        self.matches.add(match)
         if match in self.truth:
             log.debug(match)
         else:
@@ -51,13 +50,13 @@ class MatchValidator:
         missing = list(self.truth - self.matches)
         log.debug("Not found: %d", len(missing))
         log.debug("Examples: ")
-        log.debug(missing[:min(len(missing), 20)])      
+        log.debug(missing[:min(len(missing), 20)])
 
         assert(len(missing) == 0)
-        assert(self.errors == 0)      
+        assert(self.errors == 0)
 
     def __len__(self):
-        return len(self.matches)    
+        return len(self.matches)
 
 def complete_rooted_match(LG, r, pieces, partial_match):
     """
@@ -76,7 +75,7 @@ def complete_rooted_match(LG, r, pieces, partial_match):
 def independent_root_sets(LG, root_candidates):
     """
         Given a r lists of candidates (root_candidates) and a linear graph LG,
-        compute all ordered independent sets of size r that pick exactly one 
+        compute all ordered independent sets of size r that pick exactly one
         vertex from each set.
     """
     assert(len(root_candidates) >= 2)
@@ -111,12 +110,12 @@ def _independent_root_sets_ternary(LG, root_candsA, root_candsB, root_candsC):
     for vA in root_candsA:
         posB = bisect.bisect_right(root_candsB, vA, lo=posB)
         posC = 0
-        
+
         for vB in root_candsB[posB:]:
             if LG.adjacent_ordered(vA, vB):
                continue
 
-            posC = bisect.bisect_right(root_candsC, vB, lo=posC)                
+            posC = bisect.bisect_right(root_candsC, vB, lo=posC)
             if posC >= nC:
                 break
             for vC in root_candsC[posC:]:
@@ -193,7 +192,7 @@ def assemble_pieces(LG, pieces, recorder):
 
     # Determine interesting secondary piece boundaries from
     # the collected primary boundaries and note for each vertex
-    # which matches are `allowed' (meaning they might lead to 
+    # which matches are `allowed' (meaning they might lead to
     # a full match)
     sec_matches = defaultdict(SortedSet)
     filtered_leaves = set(prim_piece.leaves)
@@ -230,7 +229,7 @@ def assemble_pieces(LG, pieces, recorder):
         for i, (piece, sec_adh) in enumerate(zip(sec_pieces,adhesions)):
             sec_boundary = prim_boundary.restrict_to(sec_adh)
             cand_roots.append(sec_matches[sec_boundary])
-            max_count *= len(cand_roots[-1]) 
+            max_count *= len(cand_roots[-1])
         cand_roots.append(prim_matches[prim_boundary])
         max_count *= len(cand_roots[-1])
 
@@ -250,10 +249,10 @@ def assemble_pieces(LG, pieces, recorder):
 
             if partial_match.is_complete():
                 recorder.record(partial_match)
-                log.debug(">>> %s %s", extension, partial_match)                
+                log.debug(">>> %s %s", extension, partial_match)
             else:
                 # TODO!
-                log.debug(">>> Completing partial match %s %s", extension, partial_match)  
+                log.debug(">>> Completing partial match %s %s", extension, partial_match)
                 for match in complete_rooted_match(LG, 0, pieces, partial_match):
                     log.debug(">>> %s", match)
                     recorder.record(match)
@@ -295,7 +294,7 @@ if __name__ == "__main__":
     if args.no_reduction:
         log.info("Skipping recution procedure because flag --no-reduction was set")
     else:
-        mindeg = min(H.degree_sequence()) 
+        mindeg = min(H.degree_sequence())
         log.info("Computing {}-core of host graph".format(mindeg))
         G = G.compute_core(mindeg)
         log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
@@ -308,8 +307,8 @@ if __name__ == "__main__":
     if args.validate:
         log.debug("Using brute force to validate pattern count")
 
-    # TODO: 
-    # - pieces can be used as indices so adhesion/frequency should only 
+    # TODO:
+    # - pieces can be used as indices so adhesion/frequency should only
     #   be computed once per piece and used in global data structure
 
     count = 0
