@@ -48,16 +48,16 @@ class Recorder:
         if td in self.decomps:
             return True
 
-        self.decomps.add(td)    
+        self.decomps.add(td)
         log.info("Found new decomp %s", td.td_string())
         return False
 
-    def count_product(self, td_left, td_right, td_result, subisosLintoR, subisosRintoL):
+    def count_product(self, td_left, td_right, td_result):
         if td_result in self.product_edges:
-            assert self.product_edges[td_result] == (td_left, td_right, subisosLintoR, subisosRintoL)
+            assert self.product_edges[td_result] == (td_left, td_right)
         else:
             self.product_edges_count += 1
-        self.product_edges[td_result] = (td_left, td_right, subisosLintoR, subisosRintoL)
+        self.product_edges[td_result] = (td_left, td_right)
 
     def count_subtract(self, td_count, td_subtract, multi):
         if td_subtract not in self.subtract_edges[td_count]:
@@ -83,7 +83,7 @@ class Recorder:
             dag.add_node(td)
         nodes = set(dag)
         for td in nodes:
-            left, right, *_ =  self.product_edges[td]
+            left, right =  self.product_edges[td]
             out_neighbours = set([left, right])
             out_neighbours.update([t for (t,_) in self.subtract_edges[td]])
             out_neighbours = out_neighbours & nodes
@@ -117,20 +117,23 @@ class Recorder:
                     continue
                 index[td] = curr_index
                 f.write('{} {}\n'.format(curr_index, td.td_string()))
-                curr_index += 1            
+                curr_index += 1
             f.write('* Edges\n')
 
             edges_rows = []
-            for td, (left, right, subisosLintoR, subisosRintoL) in self.product_edges.items():
+            for td, (left, right) in self.product_edges.items():
                 assert td in index
                 assert left in index
                 assert right in index
+                if index[left] > index[right]:
+                    left, right = right, left # For consistency
+
                 subtr_sorted = sorted([(index[td_sub],multi) for td_sub,multi in self.subtract_edges[td]])
                 subtr_tokens = [str(x)+"|"+str(multi) for x, multi in subtr_sorted]
-                edges_rows.append( (index[td], index[left], subisosLintoR, index[right], subisosRintoL, ' '.join(subtr_tokens)) )
-            
+                edges_rows.append( (index[td], index[left], index[right], ' '.join(subtr_tokens)) )
+
             for e in sorted(edges_rows):
-                f.write('{} {}|{} {}|{} {}\n'.format(*e))
+                f.write('{} {} {} {}\n'.format(*e))
         pass
 
 def powerset(iterable):
@@ -144,7 +147,7 @@ def powerset_nonempty(iterable):
 def simulate_count(R, H, td):
     already_known = R.add_base_decomp(td)
     if already_known:
-        return 
+        return
     _simulate_count_rec(R, H, td, 0)
 
 def _simulate_count_rec(R, H, td, depth):
@@ -182,34 +185,24 @@ def _simulate_count_rec(R, H, td, depth):
         log.debug("%sThe next piece is %s and we first count it.", prefix, tdB)
         _simulate_count_rec(R, H, tdB, depth+1)
 
-        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, tdA, tdB)   
+        log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, tdA, tdB)
 
         nodesA, nodesB, _ = td_overlap(tdA, tdB)
 
         subisosAintoB = 0
         subisosBintoA = 0
-        for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):   
+        for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):
             # Note: The resulting merge is labelled with vertices from nodesB,
-            #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting 
+            #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting
             #   node has the label y.
-
-            # Check whether this is a subisomorphism from A into B
-            if len(nodesA) == len(mapping.source()):
-                subisosAintoB += 1
-
-            # Check whether this is a subisomorphism from B into A
-            if len(nodesB) == len(mapping.target()):
-                subisosBintoA += 1
 
             # Compute remaining vertices of nodesA, nodesB between which
             # edges are still allowed (the merge makes some edges unavailable!).
             # For this, we remove all nodes _above_ nodes that participate in the
-            # merge. 
+            # merge.
             closure = tdH1.upwards_closure(mapping.target()) | mapping.source() # mapping.source() are labels not found in tdH1
             nodesA1 = nodesA - closure
             nodesB1 = nodesB - closure
-
-            assert False, "TODO: this function currently lists tdB as a subtraction."
 
             # Enumerate additional cases with additional edges
             for (H2, tdH2, edges) in enumerate_edge_faults(H1, tdH1, nodesA1, nodesB1, depth):
@@ -219,15 +212,9 @@ def _simulate_count_rec(R, H, td, depth):
 
                 _simulate_count_rec(R, H2, tdH2, depth+1)
                 coeff = compute_coefficient(result, nodesA, nodesB, tdH2)
-                # TODO: Do we need to check for this even if there is a merge? 
-                # In that case, we need to compute 'tdA2', 'tdB2' and check whether
-                # they are isomorphic.
-                if len(mapping) == 0 and tdA == tdB:
-                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH1.td_string(), tdH2.td_string(), coeff)
-                    coeff //= 2 
                 R.count_subtract(result, tdH2, coeff)
 
-        R.count_product(tdA, tdB, result, subisosAintoB, subisosBintoA)
+        R.count_product(tdA, tdB, result)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
@@ -249,7 +236,7 @@ def td_overlap(decompA, decompB):
 
 def enumerate_merges(decompA, decompB):
     """
-        Enumerates all graphs and td decompositions that 
+        Enumerates all graphs and td decompositions that
         contain decompA, decompB as subgraph/subdecompositions
         while overlapping in some subset of vertices.
     """
@@ -264,14 +251,14 @@ def enumerate_merges(decompA, decompB):
     decompJoint = decompA.merge(decompB, len(rootPath))
     # print("{} + {} = {}".format(decompA, decompB, decompJoint))
     dagJoint = decompJoint.to_ditree()
-    graphJoint = decompJoint.to_graph() 
+    graphJoint = decompJoint.to_graph()
 
     # print("TD Tree",dagJoint)
     # print("Graph", graphJoint)
 
     # Make a list of which nodes in nodesA can potentially be
     # mapped onto nodes in nodesB. The first constraint enforced here
-    # is that the must have the same in-neighbourhood w.r.t the 
+    # is that the must have the same in-neighbourhood w.r.t the
     # (joint) root-path of the decomposition.
     candidates = {}
     for u in nodesA:
@@ -285,7 +272,7 @@ def enumerate_merges(decompA, decompB):
     # print(candidates)
 
     # Now try all subsets of nodesA, including the empty set
-    seen_tdM = set()    
+    seen_tdM = set()
     for sourceA in powerset(nodesA):
         candidate_sets = [candidates[x] for x in sourceA]
         subgraphA = graphJoint.subgraph(sourceA)
@@ -306,7 +293,7 @@ def enumerate_merges(decompA, decompB):
                 continue # Not an isomorphism
 
             # print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
-            
+
             dagMerged = dagJoint.copy()
             dagMerged.merge_pairs(mapping.items())
             # print("  Dag contraction {} --{}--> {}".format(dagJoint, mapping, dagMerged))
@@ -317,7 +304,7 @@ def enumerate_merges(decompA, decompB):
                 # print("  > not a DAG")
                 continue
 
-            # This is going somewhere, so we can finally construct the 
+            # This is going somewhere, so we can finally construct the
             # resulting graph
             graphMerged = graphJoint.copy()
             graphMerged.merge_pairs(mapping.items())
@@ -325,7 +312,7 @@ def enumerate_merges(decompA, decompB):
             # print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
             # Decompose resulting graph according to DAG embeddings
-            # print("  TD decompositions of {}:".format(graphMerged)) 
+            # print("  TD decompositions of {}:".format(graphMerged))
             for o in dagMerged.embeddings():
                 # We decompose 'graphMerged' with the additional constraint that
                 # the root-path must stay a prefix of the resulting decomposition
@@ -336,7 +323,7 @@ def enumerate_merges(decompA, decompB):
                 # inner loop we consider every decomposition only once.
                 if tdMerged in seen_tdM:
                     continue
-                yield graphMerged, tdMerged, mapping                  
+                yield graphMerged, tdMerged, mapping
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     """
@@ -345,7 +332,7 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
         of tdH must be a prefix of the resulting decompositions' root-path.
     """
     prefix = " "*(4*depth)
-    log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB ) 
+    log.debug("%sTo account for non-induced instance, edges between %s and %s need to be considered", prefix, nodesA, nodesB )
     potential_edges = list(product(nodesA, nodesB))
 
     # We add virtual root-path edges in order to preserve the root-path
@@ -360,13 +347,13 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
         return
 
     log.debug("%sWe subtract the results of the following counts:", prefix)
-    for edges in powerset_nonempty(potential_edges):    
+    for edges in powerset_nonempty(potential_edges):
         seen_decomp = set()
         for o in tdH.suborders(H):
             assert len(o) > 0
             HH = H.copy()
             HH.add_edges(edges)
-            log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)                    
+            log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)
             tdHH = TD.decompose(HH, o, rootPathEdges)
             if tdHH in seen_decomp:
                 continue
@@ -387,7 +374,7 @@ def compute_coefficient(td, nodesA, nodesB, defect):
     rootPathSet = set(rootPath)
     nodesA, nodesB = list(nodesA), list(nodesB) # We need a consistent iteration order
     defectNodes = set(defect.nodes()) - rootPathSet
-    graph = td.to_graph() 
+    graph = td.to_graph()
     graphDefect = defect.to_graph()
     subgraphA = graph.subgraph(set(nodesA))
     subgraphB = graph.subgraph(set(nodesB))
@@ -402,7 +389,7 @@ def compute_coefficient(td, nodesA, nodesB, defect):
         for t in (defect.nodes() - rootPathSet):
             rpNeighT = defect.in_neighbours(t) & rootPathSet
             if rpNeighS == rpNeighT:
-                candidates[s].add(t)    
+                candidates[s].add(t)
     # print("Candidates:", dict(candidates))
     # print("Need to cover nodes", defectNodes)
 
@@ -425,12 +412,12 @@ def compute_coefficient(td, nodesA, nodesB, defect):
 
         # Check whether mapping is order-compatible; meaning that valid orderings
         # of the target nodes according the 'defect' decomposition must all be
-        # compatible with the original decomposition. 
+        # compatible with the original decomposition.
         # TODO: This could probably done more efficiently by considering the induced
         #       posets.
         orderCompatible = True
         for o in defect.suborders(choicesA):
-            oo = [mappingArev[x] for x in o]  
+            oo = [mappingArev[x] for x in o]
             if not td.compatible_with(oo):
                 orderCompatible = False
                 break
@@ -454,7 +441,7 @@ def compute_coefficient(td, nodesA, nodesB, defect):
 
             orderCompatible = True
             for o in defect.suborders(choicesB):
-                oo = [mappingBrev[x] for x in o]  
+                oo = [mappingBrev[x] for x in o]
                 if not td.compatible_with(oo):
                     orderCompatible = False
                     break
