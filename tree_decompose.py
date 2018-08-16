@@ -124,6 +124,24 @@ class TD:
             res |= c.nodes()
         return res
 
+    def upwards_closure(self, nodes):
+        """
+            Returns all nodes of the decomposition that lie above
+            'nodes', e.g. the union of all root-paths leading to each
+            member of 'nodes'. The result will contain all members of 'nodes'
+            that are contained in this decomposition.
+        """
+        res = set()
+        for i,x in enumerate(self._bag):
+            if x in nodes: 
+                ix = i + self.depth
+                res = set(self._sep[:ix+1]) # We want to return thus, but there might be
+                                            # yet another member of 'nodes' below us.
+
+        for c in self.children:
+            res |= c.upwards_closure(nodes)
+        return res
+
     def __iter__(self):
         return iter(self.nodes())
 

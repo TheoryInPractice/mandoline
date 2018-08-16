@@ -188,36 +188,44 @@ def _simulate_count_rec(R, H, td, depth):
 
         subisosAintoB = 0
         subisosBintoA = 0
-        for (H, tdH, mapping) in enumerate_merges(tdA, tdB):   
-            nodesAA = nodesA - mapping.source()
-            nodesBB = nodesB - mapping.target()
+        for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):   
+            # Note: The resulting merge is labelled with vertices from nodesB,
+            #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting 
+            #   node has the label y.
 
-            # If nodesBB is empty we have a complete isomorphism from tdB
-            # into a subset of tdA. We need to count these!
-            if len(nodesBB) == 0:
-                subisosBintoA += 1
-
-            if len(nodesAA) == 0:
+            # Check whether this is a subisomorphism from A into B
+            if len(nodesA) == len(mapping.source()):
                 subisosAintoB += 1
 
-            if tdH != td:
-                # This is a proper merge and we need to subtract-count it
-                _simulate_count_rec(R, H, tdH, depth+1)
-                coeff = compute_coefficient(result, nodesA, nodesB, tdH)
-                if tdA == tdB:
-                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH.td_string(), tdHH.td_string(), coeff)
-                    coeff //= 2 
-                R.count_subtract(result, tdH, coeff)                
+            # Check whether this is a subisomorphism from B into A
+            if len(nodesB) == len(mapping.target()):
+                subisosBintoA += 1
+
+            # Compute remaining vertices of nodesA, nodesB between which
+            # edges are still allowed (the merge makes some edges unavailable!).
+            # For this, we remove all nodes _above_ nodes that participate in the
+            # merge. 
+            closure = tdH1.upwards_closure(mapping.target()) | mapping.source() # mapping.source() are labels not found in tdH1
+            nodesA1 = nodesA - closure
+            nodesB1 = nodesB - closure
+
+            assert False, "TODO: this function currently lists tdB as a subtraction."
 
             # Enumerate additional cases with additional edges
-            for (HH, tdHH, edges) in enumerate_edge_faults(H, tdH, nodesAA, nodesBB, depth):
-                assert len(edges) != 0
-                _simulate_count_rec(R, HH, tdHH, depth+1)
-                coeff = compute_coefficient(result, nodesA, nodesB, tdHH)
-                if tdA == tdB:
-                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH.td_string(), tdHH.td_string(), coeff)
+            for (H2, tdH2, edges) in enumerate_edge_faults(H1, tdH1, nodesA1, nodesB1, depth):
+                if len(edges) == 0 and len(mapping) == 0:
+                    assert tdH2 == result, "{} != {}".format(tdH2.td_string(), result.td_string())
+                    continue # No merge, no edge addition. This case is included in the iteration for convenience.
+
+                _simulate_count_rec(R, H2, tdH2, depth+1)
+                coeff = compute_coefficient(result, nodesA, nodesB, tdH2)
+                # TODO: Do we need to check for this even if there is a merge? 
+                # In that case, we need to compute 'tdA2', 'tdB2' and check whether
+                # they are isomorphic.
+                if len(mapping) == 0 and tdA == tdB:
+                    assert coeff % 2 == 0, "Coefficient of {} into {} is not even ({})".format(tdH1.td_string(), tdH2.td_string(), coeff)
                     coeff //= 2 
-                R.count_subtract(result, tdHH, coeff)
+                R.count_subtract(result, tdH2, coeff)
 
         R.count_product(tdA, tdB, result, subisosAintoB, subisosBintoA)
 
@@ -344,6 +352,9 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
     # in the resulting decompositions.
     rootPath = tuple(tdH._sep)
     rootPathEdges = list(zip(rootPath[:-1],rootPath[1:]))
+
+    # Return original decomposition without edges added
+    yield H, tdH, tuple()
 
     if len(potential_edges) == 0:
         return
