@@ -231,9 +231,17 @@ class CDAG:
             res.dependency_dag.add_node(i)
         res.graph = base_decomps[0].to_graph()
 
+        conflicts = {}
         for s,(l,r) in product_edges.items():
             res.dependency_dag.add_arc(s, l)
             res.dependency_dag.add_arc(s, r)
+            if (l,r) in conflicts:
+                td_left, td_right = res.index[l], res.index[r]
+                td_res, td_conf = res.index[s], res.index[conflicts[(l,r)]]
+                print(f"Conflict: {td_left} + {td_right} = {td_res} AND {td_conf}")
+                print(f"          {td_left.td_string()} + {td_right.td_string()} = {td_res.td_string()} AND {td_conf.td_string()}")
+                assert False
+            conflicts[(l,r)] = conflicts[(r,l)] = s
         for s,N in subtract_edges.items():
             for t,_ in N:
                 res.dependency_dag.add_arc(s,t)
