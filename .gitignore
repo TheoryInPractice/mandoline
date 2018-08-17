@@ -1,0 +1,6 @@
+**/*.pyc
+env/
+temp*g
+test.svg
+*.prof
+debug.txt
