@@ -112,7 +112,7 @@ class TD:
         self._bag = tuple(sep[depth:])
         self._in = tuple(in_neighbours)
         self.depth = depth
-        self.children = tuple(sorted(children, key=lambda c: c._in))
+        self.children = tuple(sorted(children, key=lambda c: c.max_postfix()))
         for c in self.children:
             c.parent = self
 
@@ -175,6 +175,12 @@ class TD:
         for c in self.children:
             res |= c.descendants()
         return res
+
+    def max_postfix(self):
+        if len(self.children) == 0:
+            return self._in
+        else:
+            return self._in + self.children[-1].max_postfix()
 
     def prefix(self):
         raise RuntimeError("Deprecated")
