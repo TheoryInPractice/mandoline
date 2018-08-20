@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 
-from helpers import CheckExt
+from helpers import CheckExt, suborder
 from tree_decompose import TD, short_str
 
 import logging
@@ -361,6 +361,43 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
             seen_decomp.add(tdHH)
             yield HH, tdHH, edges
 
+def count_automorphisms(td, nodes):
+    """
+        Counts all automorphisms of the subgraph induced
+        by (root-path + nodes) in which the root-path is mapped by
+        the identity.
+    """
+    return sum([1 for _ in compute_automorphisms(td, nodes)])
+
+def compute_automorphisms(td, nodes):
+    """
+        Computes all depth-preserving automorphisms of the subgraph induced
+        by (root-path + nodes). Since the depths of nodes are preserved, the
+        root-path will always be mapped to itself and is _not_ returned
+    """
+    rootPath = tuple(td._sep)
+    rootPathSet = set(rootPath)
+    subgraph = td.to_graph().subgraph(nodes)
+
+    # Partition nodes according to a) their depth and b)
+    # their root-path neighbourhood
+    partition = defaultdict(list)
+    for s in nodes:
+        rpNeighS = td.in_neighbours(s) & rootPathSet
+        N = suborder(rootPath, rpNeighS)
+        d = td.depth_of(s)
+        partition[(d,N)].append(s)
+    partition = list(partition.values())
+
+    # Combine all permutations of each block and check whether the
+    # resulting mapping is an automorphism
+    for perms in product(*[permutations(p) for p in partition]):
+        mapping = dict()
+        for orig, perm in zip(partition, perms):
+            mapping.update(zip(orig, perm))
+        if subgraph.relabel(mapping) == subgraph:
+            yield mapping
+
 
 def compute_coefficient(td, nodesA, nodesB, defect):
     """
@@ -451,6 +488,17 @@ def compute_coefficient(td, nodesA, nodesB, defect):
 
             # Whatever remains is a valid mapping!
             count += 1
+
+    autoA = count_automorphisms(td, nodesA)
+    autoB = count_automorphisms(td, nodesB)
+    if count % (autoA * autoB) != 0:
+        print(td.td_string())
+        print(td)
+        print(nodesA)
+        print(nodesB)
+        print(defect.td_string())
+    assert count % (autoA * autoB) == 0, "{} not divisible by {} = {} x {}".format(count, autoA*autoB, autoA, autoB)
+    count //= autoA * autoB
 
     return count
 

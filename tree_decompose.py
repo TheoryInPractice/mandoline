@@ -2,7 +2,7 @@
 
 from graph import Graph, DiGraph, load_graph
 from pattern import PatternBuilder, Pattern
-from helpers import short_str, vertex_str, decode_vertices
+from helpers import short_str, vertex_str, decode_vertices, suborder
 
 import argparse
 import itertools
@@ -18,13 +18,11 @@ import logging
 
 log = logging.getLogger("mandoline")
 
-def suborder(order, vertices):
-    return tuple(filter(lambda s: s in vertices, order))
-
 class TD:
     @staticmethod
     def decompose(G, order, extra_edges=None):
-        assert set(G) == set(order), "Order {} is not incompatible with vertices {}".format(order, list(G)) 
+        order = list(order)
+        assert set(G) == set(order), "Order {} is not incompatible with vertices {}".format(order, list(G))
 
         GG = G.copy()
         if extra_edges != None:
@@ -68,7 +66,7 @@ class TD:
 
         # Splits a string by the '|' symbole but ignore portions
         # that are nested inside curly braces.
-        splits = [-1] 
+        splits = [-1]
         depth = 0
         for i,c in enumerate(s):
             if c == '{':
@@ -88,8 +86,8 @@ class TD:
         if i == -1:
             in_neighbours, child_str = s, ""
         else:
-            in_neighbours, child_str = s[:i], s[i+1:-1] 
-        
+            in_neighbours, child_str = s[:i], s[i+1:-1]
+
         in_neighbours = list(map(decode_vertices, in_neighbours.split(',')))
         in_neighbours = [tuple(N) for N in in_neighbours]
         bag = tuple(range(start_index, start_index+len(in_neighbours)))
@@ -97,7 +95,7 @@ class TD:
         depth = len(sep)
         sep = sep + bag
 
-        assert bag == sep[depth:] 
+        assert bag == sep[depth:]
 
         children = []
         for c in TD._split_child_string(child_str):
@@ -119,10 +117,26 @@ class TD:
             c.parent = self
 
     def nodes(self):
-        res = set(self._sep) 
+        res = set(self._sep)
         for c in self.children:
             res |= c.nodes()
         return res
+
+    def height(self):
+        if len(self.children) == 0:
+            return len(self._sep)
+
+        return max([c.height() for c in self.children])
+
+    def depth_of(self, x):
+        for c in self.children:
+            try:
+                return c.depth_of(x)
+            except ValueError:
+                pass
+
+        # This raises a ValueError if x is not in _bag
+        return self.depth + self._bag.index(x)
 
     def upwards_closure(self, nodes):
         """
@@ -133,7 +147,7 @@ class TD:
         """
         res = set()
         for i,x in enumerate(self._bag):
-            if x in nodes: 
+            if x in nodes:
                 ix = i + self.depth
                 res = set(self._sep[:ix+1]) # We want to return thus, but there might be
                                             # yet another member of 'nodes' below us.
@@ -221,7 +235,7 @@ class TD:
         # Recurse
         for c in self.children:
             H = c.to_graph()
-            res.add_nodes(H) 
+            res.add_nodes(H)
             res.add_edges(H.edges())
         return res
 
@@ -319,7 +333,7 @@ class TD:
             the common root prefix attached to it.
         """
         if len(self.children) == 0:
-            yield self.copy() 
+            yield self.copy()
             return
 
         assert(len(self.children) != 1)
@@ -369,7 +383,7 @@ class TD:
         if len(self.children) == 0:
             return ','.join(map(lambda N: vertex_str(N), self._in))
         else:
-            return ','.join(map(lambda N: vertex_str(N), self._in)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'       
+            return ','.join(map(lambda N: vertex_str(N), self._in)) + '{' + '|'.join(map(lambda c: c.td_string(), self.children)) + '}'
 
     def order_string(self):
         if len(self.children) == 0:

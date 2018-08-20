@@ -18,6 +18,10 @@ def CheckExt(choices):
                 setattr(namespace,self.dest,fname)
     return Act
 
+def suborder(order, selection):
+    """ Returns the suborder induced by 'selection' """
+    return tuple(filter(lambda s: s in selection, order))
+
 def singlehash(x):
     return (hash(x) * 14695981039346656037) % (1 << 64)
 

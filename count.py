@@ -9,7 +9,7 @@ import argparse
 import itertools
 import sys
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 import bisect
@@ -40,7 +40,6 @@ class CDAG:
 
         self.product_edges = None
         self.subtract_edges = None
-        self.merge_operations = None
         self.dependency_dag = None
 
     def target_graph(self):
@@ -58,8 +57,7 @@ class CDAG:
         num_bases = len(self.base_decomps)
 
         def count_linear(i):
-            print()
-            print("Counting", i, self.index[i].td_string(), "(linear)")
+            log.info("\nCounting %s %s (linear)", i, self.index[i].td_string())
             td = self.index[i]
             piece = td.to_piece(k)
             totalcount = 0
@@ -71,15 +69,14 @@ class CDAG:
                         counts[adh][i] += 1
                         totalcount += 1
                         adhesions[i].add(adh)
-            print("Adhesions for {} are {}".format(i, adhesions[i]))
+            log.debug("Adhesions for {} are {}".format(i, adhesions[i]))
 
         def count_composite(i):
-            print()
-            print("Counting", i, self.index[i].td_string())
+            log.info("\nCounting %s %s", i, self.index[i].td_string())
             left, right = self.product_edges[i]
 
             if len(self.subtract_edges[i]) > 0:
-                subtract_ids, subtract_multis = zip(*self.subtract_edges[i])
+                subtract_ids, subtract_multis = zip(*self.subtract_edges[i].items())
             else:
                 subtract_ids, subtract_multis = [], []
 
@@ -88,12 +85,12 @@ class CDAG:
             # td_subtract_str = '; '.join(map(lambda t: t.td_string(), td_subtract))
             td_subtract_str = ' '.join([ '- {}#{}'.format(m,self.index.vertex_at(x).td_string()) for x,m in zip(subtract_ids, subtract_multis)])
             subtract_str = ' '.join([ '- {}#{}'.format(m,x) for x,m in zip(subtract_ids, subtract_multis)])
-            print("#{} = #{} x #{} {}".format(i, left, right, subtract_str))
-            print("#{} = #{} x #{} {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
+            log.info("#{} = #{} x #{} {}".format(i, left, right, subtract_str))
+            log.info("#{} = #{} x #{} {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
 
-            print("Left pattern found for {}".format(adhesions[left]))
-            print("Right pattern found for {}".format(adhesions[right]))
-            print("  Intersection contains {}".format(adhesions[left] & adhesions[right]))
+            log.info("Left pattern found for {}".format(adhesions[left]))
+            log.info("Right pattern found for {}".format(adhesions[right]))
+            log.info("  Intersection contains {}".format(adhesions[left] & adhesions[right]))
 
             adh_count_size = self.index[i].adhesion_size()
             for adh in (adhesions[left] & adhesions[right]):
@@ -101,25 +98,37 @@ class CDAG:
                     continue
 
                 c_left, c_right = counts[adh][left], counts[adh][right]
-                c_subtract = sum([m*counts[adh][j] for j,m in self.subtract_edges[i]])
+                c_subtract = sum([m*counts[adh][j] for j,m in self.subtract_edges[i].items()])
                 c = c_left * c_right - c_subtract
 
-                if left == right:
-                    assert c % 2 == 0
-                    c //= 2
+                # ... WAT
+                subisos = 1
+                if td_left.height() == td_right.height():
+                    if left in self.subtract_edges[i]:
+                        subisos += self.subtract_edges[i][left]
+                    if right in self.subtract_edges[i] and left != right:
+                        subisos += self.subtract_edges[i][right]
+                    print(td.td_string(), td_left.td_string(), td_right.td_string(), subisos)
+
+                if c % subisos != 0:
+                    print(f"{c_left} x {c_right} - {c_subtract} = {c} not divisible by {subisos}")
+                assert c % subisos == 0
+                assert left != right or subisos == 2 # If left == right we expect subisos to be 2
+
+                c //= subisos
                 assert c >= 0
 
-                print("  {} = {} * {} - {}".format(c, c_left, c_right, c_subtract))
+                log.info("  {} = {} * {} - {}".format(c, c_left, c_right, c_subtract))
 
                 if c == 0:
                     continue
 
-                print("  Counted {} instances of {} on {}".format(c,td.td_string(),adh))
+                log.info("  Counted {} instances of {} on {}".format(c,td.td_string(),adh))
                 for asize in self.adhesion_sizes[i]:
                     assert asize <= len(adh)
                     counts[adh[:asize]][i] += c
                     adhesions[i].add(adh[:asize])
-                    print("  > Adding to {}, summing to {}".format(adh[:asize], counts[adh[:asize]][i]))
+                    log.info("  > Adding to {}, summing to {}".format(adh[:asize], counts[adh[:asize]][i]))
 
 
         # (num_bases+num_inter+num_pieces-1)..num_bases+num_inter
@@ -141,34 +150,34 @@ class CDAG:
             else:
                 count_composite(i)
 
-        print()
-        print("Linear counts:")
+        log.info("\nLinear counts:")
         for i in range(num_bases+num_inter,num_bases+num_inter+num_pieces):
             # We can compute the total count by fixing one adhesion size (say, the smallest) and
             # sum the counts for those adhesions only.
             adh_size = min(self.adhesion_sizes[i])
-            print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
-            # for adh in adhesions[i]:
-            #     print("  ", adh, counts[adh][i])
+            log.info("%i %s %i", i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
+            for adh in adhesions[i]:
+                log.debug("  %s %i", adh, counts[adh][i])
 
-        print()
-        print("Intermediate counts:")
+        log.info("\nIntermediate counts:")
         for i in range(num_bases,num_bases+num_inter):
             # We can compute the total count by fixing one adhesion size (say, the smallest) and
             # sum the counts for those adhesions only.
             adh_size = min(self.adhesion_sizes[i])
-            print(i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
+            log.info("%i %s %i", i, self.index[i].td_string(), sum([counts[adh][i] for adh in adhesions[i] if len(adh) == adh_size]))
             for adh in adhesions[i]:
-                print("  ", adh, counts[adh][i])
+                log.debug("  %s %i", adh, counts[adh][i])
 
-        print()
-        print("Final counts:")
+        log.info("\nFinal counts:")
         total = 0
+        by_decomposition = Counter()
         for i in range(num_bases):
             pattern_count = counts[tuple()][i]
             total += pattern_count
-            print("Pattern {} {} counted {} times".format(i, self.index[i].td_string(), pattern_count))
-        print("Counted target graph {} times in host graph".format(total))
+            by_decomposition[self.index[i]] = pattern_count
+            log.info("Pattern {} {} counted {} times".format(i, self.index[i].td_string(), pattern_count))
+        log.info("Counted target graph {} times in host graph".format(total))
+        return total, by_decomposition
 
     @staticmethod
     def load(filename):
@@ -179,7 +188,7 @@ class CDAG:
         base_decomps = {}
 
         product_edges = {}
-        subtract_edges = defaultdict(set)
+        subtract_edges = defaultdict(dict)
 
         def parse_base(line):
             _id, td_str = line.split()
@@ -243,7 +252,7 @@ class CDAG:
                 assert False
             conflicts[(l,r)] = conflicts[(r,l)] = s
         for s,N in subtract_edges.items():
-            for t,_ in N:
+            for t in N:
                 res.dependency_dag.add_arc(s,t)
         res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
 
@@ -266,20 +275,15 @@ class CDAG:
         res.decomps = decomps
         res.pieces = pieces
 
-        print("Base decompositions: {}--{}".format(min(base_decomps), max(base_decomps)))
-        print("Interm. decompositions: {}--{}".format(min(decomps), max(decomps)))
-        print("Linear. decompositions: {}--{}".format(min(pieces), max(pieces)))
+        log.info("Base decompositions: {}--{}".format(min(base_decomps), max(base_decomps)))
+        if len(decomps) > 0:
+            log.info("Interm. decompositions: {}--{}".format(min(decomps), max(decomps)))
+        log.info("Linear. decompositions: {}--{}".format(min(pieces), max(pieces)))
 
         # Store product edges and reverse lookup of what the merging
         # of a td-pair results in
         res.product_edges = product_edges
         res.subtract_edges = subtract_edges
-
-        res.merge_operations = defaultdict(dict)
-        for s,(l,r) in product_edges.items():
-            adh_size = len(res.index[s]._sep)
-            assert (l,r) not in res.merge_operations or adh_size not in res.merge_operations[(l,r)]
-            res.merge_operations[(l,r)][adh_size] = s
 
         # TODO: at this point we could also compute and propagate the wcol-distances
         # of decompositions, thus pruning the search space for couting pieces.
@@ -305,8 +309,8 @@ class CDAG:
                     parent_adhesion = res.index[parent].adhesion_size()
                     if parent_adhesion > res.index[i].adhesion_size():
                         # This issue should be solved since commit a8202d9.
-                        print("Decomp: ", res.index[i].td_string())
-                        print("Parent: ", res.index[parent].td_string())
+                        log.fatal("Decomp: ", res.index[i].td_string())
+                        log.fatal("Parent: ", res.index[parent].td_string())
                         assert False
                     res.adhesion_sizes[i].add(parent_adhesion)
 
