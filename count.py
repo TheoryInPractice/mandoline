@@ -101,7 +101,7 @@ class CDAG:
                 c_subtract = sum([m*counts[adh][j] for j,m in self.subtract_edges[i].items()])
                 c = c_left * c_right - c_subtract
 
-                # ... WAT
+                # TODO: This is probably still not correct.
                 subisos = 1
                 if td_left.height() == td_right.height():
                     if left in self.subtract_edges[i]:
@@ -240,17 +240,9 @@ class CDAG:
             res.dependency_dag.add_node(i)
         res.graph = base_decomps[0].to_graph()
 
-        conflicts = {}
         for s,(l,r) in product_edges.items():
-            res.dependency_dag.add_arc(s, l)
-            res.dependency_dag.add_arc(s, r)
-            if (l,r) in conflicts:
-                td_left, td_right = res.index[l], res.index[r]
-                td_res, td_conf = res.index[s], res.index[conflicts[(l,r)]]
-                print(f"Conflict: {td_left} + {td_right} = {td_res} AND {td_conf}")
-                print(f"          {td_left.td_string()} + {td_right.td_string()} = {td_res.td_string()} AND {td_conf.td_string()}")
-                assert False
-            conflicts[(l,r)] = conflicts[(r,l)] = s
+            res.dependency_dag.add_arc(s,l)
+            res.dependency_dag.add_arc(s,r)
         for s,N in subtract_edges.items():
             for t in N:
                 res.dependency_dag.add_arc(s,t)
@@ -317,6 +309,14 @@ class CDAG:
 
             visited |= frontier
             frontier = res.dependency_dag.out_neighbours_set(visited)
+
+        # Sanity check: every decomposition should have at least one adhesion
+        # size for which it needs to be counted
+        for i in chain(pieces, decomps):
+            if len(res.adhesion_sizes[i]) == 0:
+                print(f"Decomposition {i} has no adhesions.")
+                print("In-neighbours:", res.dependency_dag.in_neighbours(i))
+                assert False
 
         return res
 
