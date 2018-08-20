@@ -79,7 +79,7 @@ class Graph:
 
     def __repr__(self):
         return short_str(sorted(self.nodes)) + "{" + ','.join(map(lambda e: '{}{}'.format(*e), self.edges())) + "}"
-    
+
     def __hash__(self):
         return self.hash
 
@@ -113,10 +113,12 @@ class Graph:
             return # Important for keeping hash consistent!
         self.nodes.add(u)
         self.hash ^= singlehash(u)
+        return self
 
     def add_nodes(self, nodes):
         for u in nodes:
             self.add_node(u) # Safest way to keep the hash intact
+        return self
 
     def remove_node(self,u):
         if u not in self.nodes:
@@ -126,20 +128,23 @@ class Graph:
         del self.adj[u]
         self.nodes.remove(u)
         self.hash ^= singlehash(u)
+        return self
 
     def add_edge(self,u,v):
         if self.adjacent(u,v):
-            return # Important for keeping hash consistent! 
+            return # Important for keeping hash consistent!
         self.add_node(u)
-        self.add_node(v)        
+        self.add_node(v)
         self.adj[u].add(v)
         self.adj[v].add(u)
         self.hash ^= pairhash(u,v)
         self.hash ^= pairhash(v,u)
+        return self
 
     def add_edges(self, edges):
         for u,v in edges:
             self.add_edge(u,v)
+        return self
 
     def remove_edge(self,u,v):
         if not self.adjacent(u,v):
@@ -147,10 +152,11 @@ class Graph:
         self.adj[u].discard(v)
         self.adj[v].discard(u)
         self.hash ^= pairhash(u,v)
-        self.hash ^= pairhash(v,u)        
+        self.hash ^= pairhash(v,u)
+        return self
 
     def merge(self, u, v):
-        """ 
+        """
             Merges node u _onto_ v, meaning we identify the two
             nodes and label the resulting node 'v'.
         """
@@ -160,14 +166,17 @@ class Graph:
 
         for w in neighs:
             self.add_edge(v,w)
+        return self
 
     def merge_pairs(self, pairs):
         for u,v in pairs:
             self.merge(u,v)
+        return self
 
     def remove_loops(self):
         for v in self:
             self.remove_edge(v,v)
+        return self
 
     def adjacent(self,u,v):
         return v in self.adj[u]
@@ -185,7 +194,7 @@ class Graph:
         res = set()
         for v in centers:
             res = res | self.neighbours(v)
-        return res        
+        return res
 
     def rneighbours(self,u,r):
         res = set([u])
@@ -197,7 +206,7 @@ class Graph:
         return len(self.adj[u])
 
     def degree_sequence(self):
-        return [ self.degree(u) for u in self.nodes] 
+        return [ self.degree(u) for u in self.nodes]
 
     def degree_dist(self):
         res = defaultdict(int)
@@ -232,7 +241,7 @@ class Graph:
 
     def to_lgraph(self, order=None):
         """
-            Returns an ordered graph with node indices from 0 to n-1 and 
+            Returns an ordered graph with node indices from 0 to n-1 and
             an Indexmap to recover the original ids.
             The nodes are sorted by (degree, label) in descending order
             in order to keep the wcol number small.
@@ -240,7 +249,7 @@ class Graph:
         lgraph = LGraph()
 
         if order == None:
-            order = [(self.degree(u), u) for u in self.nodes] 
+            order = [(self.degree(u), u) for u in self.nodes]
             order.sort(reverse=True)
             order = [u for _,u in order]
 
@@ -281,7 +290,7 @@ class Graph:
         from pattern import Pattern
         """
             Returns a `pattern' (and ordered graph with node indices from 0 to n-1)
-            and an Indexmap to recover the original ids. 
+            and an Indexmap to recover the original ids.
         """
         pat = LGraph()
 
@@ -300,7 +309,7 @@ class Graph:
         root = next(iter(self.nodes))
         return len(self.bfs(root)) == len(self.nodes)
 
-    def connected_components(self): 
+    def connected_components(self):
         n = len(self)
         res = []
         if n == 0:
@@ -384,7 +393,7 @@ class DiGraph:
 
     def __repr__(self):
         return short_str(sorted(self.nodes)) + "{" + ','.join(map(lambda e: '{}{}'.format(*e), self.arcs())) + "}"
-    
+
     def arcs(self):
         for u in self:
             for v in self.out[u]:
@@ -395,6 +404,7 @@ class DiGraph:
 
     def add_node(self,u):
         self.nodes.add(u)
+        return self
 
     def remove_node(self,u):
         if u not in self.nodes:
@@ -411,7 +421,7 @@ class DiGraph:
         """
             Removes a node an connects all its
             former in-neighbours to all its former
-            out-neighbours. 
+            out-neighbours.
         """
         if u not in self.nodes:
             return
@@ -421,9 +431,10 @@ class DiGraph:
 
         for v,w in product(in_neighs, out_neighs):
             self.add_arc(v,w)
+        return self
 
     def merge(self, u, v):
-        """ 
+        """
             Merges node u _onto_ v, meaning we identify the two
             nodes and label the resulting node 'v'.
         """
@@ -436,6 +447,7 @@ class DiGraph:
             self.add_arc(w,v)
         for w in out_neighs:
             self.add_arc(v,w)
+        return self
 
     def merge_pairs(self, pairs):
         for u,v in pairs:
@@ -443,9 +455,10 @@ class DiGraph:
 
     def add_arc(self,u,v):
         self.nodes.add(u)
-        self.nodes.add(v)        
+        self.nodes.add(v)
         self.out[u].add(v)
         self._in[v].add(u)
+        return self
 
     def add_arcs(self, arcs):
         for u,v in arcs:
@@ -454,10 +467,12 @@ class DiGraph:
     def remove_arc(self,u,v):
         self.out[u].discard(v)
         self._in[v].discard(u)
+        return self
 
     def remove_loops(self):
         for v in self:
             self.remove_arc(v,v)
+        return self
 
     def adjacent(self,u,v):
         return v in self.out[u]
@@ -478,10 +493,10 @@ class DiGraph:
         return len(self.out[u])
 
     def in_degree(self, u):
-        return len(self._in[u])       
+        return len(self._in[u])
 
     def degree(self, u):
-        return self.in_degree(u) + self.out_degree(u)   
+        return self.in_degree(u) + self.out_degree(u)
 
     def normalize(self):
         """
@@ -498,7 +513,7 @@ class DiGraph:
 
         index = 0
         while index < n:
-            # Find a lowest-degree vertex. 
+            # Find a lowest-degree vertex.
             d = 0
             while len(buckets[d]) == 0:
                 d += 1
@@ -556,7 +571,7 @@ class DiGraph:
         n = len(H)
         arcs = list(H.arcs())
 
-        # Compute (undirected) adjacency matrix. 
+        # Compute (undirected) adjacency matrix.
         adj = [[False for j in range(n)]+[True] for i in range(n+1)]
         for i,j in arcs:
             if i > j:
@@ -602,7 +617,7 @@ class LGraph:
     """
     def __init__(self):
         self.wr = [[]]
-        self.outN = [] 
+        self.outN = []
 
     def __len__(self):
         return len(self.wr[0])
@@ -622,7 +637,7 @@ class LGraph:
         if len(vertices) == 1:
             return self.wr[0][vertices[0]]
 
-        # Find vertex with smallest in-neighbourhood  
+        # Find vertex with smallest in-neighbourhood
         temp = [(len(self.wr[0][iv]),iv) for iv in vertices]
         smallest = min(temp)[1]
         smallN = self.wr[0][smallest]
@@ -656,10 +671,10 @@ class LGraph:
     def wreach_iter(self):
         for iu in self:
             yield iu, sorted(self.wreach_all(iu))
-    
+
     def wreach_union(self, iu, min_dist, max_dist):
         res = []
-        max_dist = min(max_dist, len(self.wr)-1) 
+        max_dist = min(max_dist, len(self.wr)-1)
         for d in range(min_dist, max_dist+1):
             res.extend(self.wr[d][iu])
         return res
@@ -735,19 +750,19 @@ class LGraph:
                     break
             else:
                 assert match
-                yield match            
+                yield match
 
     def match(self, iu, piece, partial_match=None, filtered_leaves=None, allowed_matches=None):
         """
             Returns all ordered sets X \\subseteq WR(iu)
-            such that ordered graph induced by X \\cup \\{iu\\} 
+            such that ordered graph induced by X \\cup \\{iu\\}
             matches the provided piece.
         """
         from pattern import PatternMatch
         assert self.depth() >= len(piece.pattern)-1
 
         if filtered_leaves == None:
-            filtered_leaves = set() 
+            filtered_leaves = set()
 
         # Prepare basic match by adding the root
         missing_leaves = list(piece.leaves)
@@ -776,7 +791,7 @@ class LGraph:
             all vertices of the given piece. All roots
             must habe been set for this to work.
         """
-        from pattern import PatternMatch        
+        from pattern import PatternMatch
         assert self.depth() >= len(piece.pattern)-1
 
         missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
@@ -808,7 +823,7 @@ class LGraph:
             log.debug("%s Restricted wreach set %s", prefix, wr_alt)
         else:
             # This vertex lies within the back-neighbourhood of
-            # at least one already matched vertex. 
+            # at least one already matched vertex.
             anchors = match.find_anchors(i)
             assert(len(anchors) > 0)
             candidates = self.common_in_neighbours(anchors)
@@ -856,11 +871,11 @@ class LGraph:
             if piece.adjacent(leafA, leafB) != self.adjacent(mleafA, mleafB):
                 return False
 
-        return True 
+        return True
 
     def __repr__(self):
         return ','.join(map(lambda s: str(list(s)),self.wr[0]))
-     
+
 
 class TestGraphMethods(unittest.TestCase):
 
@@ -880,10 +895,10 @@ class TestGraphMethods(unittest.TestCase):
 
         H.add_node('e')
         self.assertNotEqual(G, H)
-        
+
         H.remove_node('e')
         self.assertEqual(G, H)
-        
+
         H.add_edge('a', 'a')
         self.assertNotEqual(G, H)
 
@@ -946,7 +961,7 @@ class TestGraphMethods(unittest.TestCase):
             H.add_edge(random.randint(n+1, 2*n-1), random.randint(n+1, 2*n-1))
         H = H.subgraph(range(n))
 
-        self.assertEqual(hash(G), hash(H))        
+        self.assertEqual(hash(G), hash(H))
 
         for i in range(n):
             G.remove_node(i)
@@ -988,8 +1003,8 @@ class TestLGraphMethods(unittest.TestCase):
             pieces = pattern.decompose()
             self.assertEqual(len(pieces), num)
 
-class TestDiGraphMethods(unittest.TestCase):            
-    
+class TestDiGraphMethods(unittest.TestCase):
+
     def test_basics(self):
         G = DiGraph()
         G.add_arc(0,1)
