@@ -71,7 +71,7 @@ if __name__ == "__main__":
         enum_by_decomp[td] += len(recorder)
         enum_count += len(recorder)
 
-    count, by_decomp = cdag.count(LG)
+    count, by_decomp, _ = cdag.count(LG)
 
     print("\nEnumeration count: {}".format(enum_count))
     print("Count count: {}".format(count))

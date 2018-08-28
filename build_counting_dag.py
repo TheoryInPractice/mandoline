@@ -52,12 +52,12 @@ class Recorder:
         log.info("Found new decomp %s", td.td_string())
         return False
 
-    def count_product(self, td_left, td_right, td_result):
+    def count_product(self, td_left, td_right, td_result, coeff):
         if td_result in self.product_edges:
-            assert self.product_edges[td_result] == (td_left, td_right)
+            assert self.product_edges[td_result] == (td_left, td_right, coeff)
         else:
             self.product_edges_count += 1
-        self.product_edges[td_result] = (td_left, td_right)
+        self.product_edges[td_result] = (td_left, td_right, coeff)
 
     def count_subtract(self, td_count, td_subtract, multi):
         if td_subtract not in self.subtract_edges[td_count]:
@@ -83,7 +83,7 @@ class Recorder:
             dag.add_node(td)
         nodes = set(dag)
         for td in nodes:
-            left, right =  self.product_edges[td]
+            left, right, _ =  self.product_edges[td]
             out_neighbours = set([left, right])
             out_neighbours.update([t for (t,_) in self.subtract_edges[td]])
             out_neighbours = out_neighbours & nodes
@@ -121,19 +121,28 @@ class Recorder:
             f.write('* Edges\n')
 
             edges_rows = []
-            for td, (left, right) in self.product_edges.items():
+            for td, (td_left, td_right, auto_coeff) in self.product_edges.items():
                 assert td in index
-                assert left in index
-                assert right in index
-                if index[left] > index[right]:
-                    left, right = right, left # For consistency
+                assert td_left in index
+                assert td_right in index
 
-                subtr_sorted = sorted([(index[td_sub],multi) for td_sub,multi in self.subtract_edges[td]])
+                left, right = index[td_left], index[td_right]
+                if left > right:
+                    left, right = right, left # For consistency
+                    td_left, td_right = td_right, td_left
+
+                subtract = dict([(index[td_sub],m) for td_sub,m in self.subtract_edges[td]])
+                # for i in subtract:
+                #     if i == right or i == left:
+                #         continue
+                #     subtract[i] *= auto_coeff
+
+                subtr_sorted = sorted(subtract.items())
                 subtr_tokens = [str(x)+"|"+str(multi) for x, multi in subtr_sorted]
-                edges_rows.append( (index[td], index[left], index[right], ' '.join(subtr_tokens)) )
+                edges_rows.append( (index[td], left, right, auto_coeff, ' '.join(subtr_tokens)) )
 
             for e in sorted(edges_rows):
-                f.write('{} {} {} {}\n'.format(*e))
+                f.write('{} {}x{}|{} {}\n'.format(*e))
         pass
 
 def powerset(iterable):
@@ -196,13 +205,11 @@ def _simulate_count_rec(R, H, td, depth):
             #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting
             #   node has the label y.
 
-            # Compute remaining vertices of nodesA, nodesB between which
-            # edges are still allowed (the merge makes some edges unavailable!).
-            # For this, we remove all nodes _above_ nodes that participate in the
-            # merge.
-            closure = tdH1.upwards_closure(mapping.target()) | mapping.source() # mapping.source() are labels not found in tdH1
-            nodesA1 = nodesA - closure
-            nodesB1 = nodesB - closure
+            # Instead of finding out which edge-pairs are still allowed, we
+            # enumerate all possible edge-pairs and let compute_coefficient below
+            # figure out whether tdA, tdB can still be found in the resulting graph.
+            nodesA1 = nodesA - mapping.source()
+            nodesB1 = nodesB
 
             # Enumerate additional cases with additional edges
             for (H2, tdH2, edges) in enumerate_edge_faults(H1, tdH1, nodesA1, nodesB1, depth):
@@ -210,11 +217,17 @@ def _simulate_count_rec(R, H, td, depth):
                     assert tdH2 == result, "{} != {}".format(tdH2.td_string(), result.td_string())
                     continue # No merge, no edge addition. This case is included in the iteration for convenience.
 
-                _simulate_count_rec(R, H2, tdH2, depth+1)
                 coeff = compute_coefficient(result, nodesA, nodesB, tdH2)
+                if coeff == 0:
+                    continue # Could not find a tdA, tdB mapping
+
+                _simulate_count_rec(R, H2, tdH2, depth+1)
                 R.count_subtract(result, tdH2, coeff)
 
-        R.count_product(tdA, tdB, result)
+        # Compute 'automorphism' coefficient: assume we find the graph 'result',
+        # how many pairs of 'tdA', 'tdB' that merge to 'result' are there?
+        coeff = compute_coefficient(result, nodesA, nodesB, result)
+        R.count_product(tdA, tdB, result, coeff)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
@@ -249,12 +262,8 @@ def enumerate_merges(decompA, decompB):
     nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
 
     decompJoint = decompA.merge(decompB, len(rootPath))
-    # print("{} + {} = {}".format(decompA, decompB, decompJoint))
     dagJoint = decompJoint.to_ditree()
     graphJoint = decompJoint.to_graph()
-
-    # print("TD Tree",dagJoint)
-    # print("Graph", graphJoint)
 
     # Make a list of which nodes in nodesA can potentially be
     # mapped onto nodes in nodesB. The first constraint enforced here
@@ -269,8 +278,6 @@ def enumerate_merges(decompA, decompB):
             if rp_neighboursA == rp_neighboursB:
                 candidates[u].add(v)
 
-    # print(candidates)
-
     # Now try all subsets of nodesA, including the empty set
     seen_tdM = set()
     for sourceA in powerset(nodesA):
@@ -283,8 +290,6 @@ def enumerate_merges(decompA, decompB):
             mapping = Bimap()
             mapping.put_all(zip(sourceA, targetB))
 
-            # print("  Mapping {} -> {} = {}".format(sourceA, targetB, mapping))
-
             # Check that subgraphs induced by 'sourceA' and 'sourceB' are the same
             # under the mapping, e.g. that the mapping is a isomorphism.
             subgraphB = graphJoint.subgraph(targetB)
@@ -292,24 +297,18 @@ def enumerate_merges(decompA, decompB):
             if subgraphA.relabel(mapping) != subgraphB:
                 continue # Not an isomorphism
 
-            # print("  Isomorphism! {} == {}".format(subgraphA.relabel(mapping), subgraphB))
-
             dagMerged = dagJoint.copy()
             dagMerged.merge_pairs(mapping.items())
-            # print("  Dag contraction {} --{}--> {}".format(dagJoint, mapping, dagMerged))
 
             # Check whether resulting decomposition graph is a DAG, otherwise
             # this mapping is incompatible with the orderings associated with decompA, decompB.
             if not dagMerged.is_acyclic():
-                # print("  > not a DAG")
                 continue
 
             # This is going somewhere, so we can finally construct the
             # resulting graph
             graphMerged = graphJoint.copy()
             graphMerged.merge_pairs(mapping.items())
-
-            # print("  Graph contraction {} --{}--> {}".format(graphJoint, mapping, graphMerged))
 
             # Decompose resulting graph according to DAG embeddings
             # print("  TD decompositions of {}:".format(graphMerged))
@@ -323,6 +322,7 @@ def enumerate_merges(decompA, decompB):
                 # inner loop we consider every decomposition only once.
                 if tdMerged in seen_tdM:
                     continue
+
                 yield graphMerged, tdMerged, mapping
 
 def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):

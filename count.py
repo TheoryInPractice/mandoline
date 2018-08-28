@@ -73,25 +73,9 @@ class CDAG:
 
         def count_composite(i):
             log.info("\nCounting %s %s", i, self.index[i].td_string())
-            left, right = self.product_edges[i]
-
-            if len(self.subtract_edges[i]) > 0:
-                subtract_ids, subtract_multis = zip(*self.subtract_edges[i].items())
-            else:
-                subtract_ids, subtract_multis = [], []
+            left, right, auto_coeff = self.product_edges[i]
 
             td, td_left, td_right = self.index[i], self.index[left], self.index[right]
-            td_subtract = self.index.vertices_at(subtract_ids)
-            # td_subtract_str = '; '.join(map(lambda t: t.td_string(), td_subtract))
-            td_subtract_str = ' '.join([ '- {}#{}'.format(m,self.index.vertex_at(x).td_string()) for x,m in zip(subtract_ids, subtract_multis)])
-            subtract_str = ' '.join([ '- {}#{}'.format(m,x) for x,m in zip(subtract_ids, subtract_multis)])
-            log.info("#{} = #{} x #{} {}".format(i, left, right, subtract_str))
-            log.info("#{} = #{} x #{} {}".format(td.td_string(), td_left.td_string(), td_right.td_string(), td_subtract_str))
-
-            log.info("Left pattern found for {}".format(adhesions[left]))
-            log.info("Right pattern found for {}".format(adhesions[right]))
-            log.info("  Intersection contains {}".format(adhesions[left] & adhesions[right]))
-
             adh_count_size = self.index[i].adhesion_size()
             for adh in (adhesions[left] & adhesions[right]):
                 if len(adh) != adh_count_size:
@@ -99,26 +83,20 @@ class CDAG:
 
                 c_left, c_right = counts[adh][left], counts[adh][right]
                 c_subtract = sum([m*counts[adh][j] for j,m in self.subtract_edges[i].items()])
-                c = c_left * c_right - c_subtract
-
-                # TODO: This is probably still not correct.
-                subisos = 1
-                if td_left.height() == td_right.height():
-                    if left in self.subtract_edges[i]:
-                        subisos += self.subtract_edges[i][left]
-                    if right in self.subtract_edges[i] and left != right:
-                        subisos += self.subtract_edges[i][right]
-                    print(td.td_string(), td_left.td_string(), td_right.td_string(), subisos)
-
-                if c % subisos != 0:
-                    print(f"{c_left} x {c_right} - {c_subtract} = {c} not divisible by {subisos}")
-                assert c % subisos == 0
-                assert left != right or subisos == 2 # If left == right we expect subisos to be 2
-
-                c //= subisos
+                debug_sub_str = ' - '.join(["{}*{}".format(m, counts[adh][j]) for j,m in self.subtract_edges[i].items()])
+                c = (c_left * c_right) - c_subtract
+                if c < 0:
+                    print(f"Count for {i} bugged, negative count")
+                    print(f"{c_left} x {c_right} - {debug_sub_str} = {c}")
                 assert c >= 0
 
-                log.info("  {} = {} * {} - {}".format(c, c_left, c_right, c_subtract))
+                if c % auto_coeff != 0:
+                    print(f"Count for {i} bugged")
+                    print(f"{c_left} x {c_right} - {c_subtract} = {c} not divisible by {auto_coeff}")
+                assert c % auto_coeff == 0
+                c //= auto_coeff
+
+                log.info("  {} = ({} * {} - {})/{}".format(c, c_left, c_right, c_subtract, auto_coeff))
 
                 if c == 0:
                     continue
@@ -177,7 +155,7 @@ class CDAG:
             by_decomposition[self.index[i]] = pattern_count
             log.info("Pattern {} {} counted {} times".format(i, self.index[i].td_string(), pattern_count))
         log.info("Counted target graph {} times in host graph".format(total))
-        return total, by_decomposition
+        return total, by_decomposition, counts
 
     @staticmethod
     def load(filename):
@@ -206,7 +184,11 @@ class CDAG:
             pieces[_id] = TD.from_string(td_str)
 
         def parse_edge(line):
-            source, left, right, *sub = list(line.split())
+            source, lr_string, *sub = list(line.split())
+            lr_string, auto_coeff = lr_string.split('|')
+            auto_coeff = int(auto_coeff)
+            left, right = lr_string.split('x')
+
             source, left, right = int(source), int(left), int(right)
 
             sub = map(lambda s: tuple(s.split('|')), sub)
@@ -215,7 +197,7 @@ class CDAG:
             assert source not in product_edges
             assert source not in subtract_edges
             assert source != left and source != right
-            product_edges[source] = (left, right)
+            product_edges[source] = (left, right, auto_coeff)
             subtract_edges[source].update(sub)
 
         modes = {}
@@ -240,7 +222,7 @@ class CDAG:
             res.dependency_dag.add_node(i)
         res.graph = base_decomps[0].to_graph()
 
-        for s,(l,r) in product_edges.items():
+        for s,(l,r,_) in product_edges.items():
             res.dependency_dag.add_arc(s,l)
             res.dependency_dag.add_arc(s,r)
         for s,N in subtract_edges.items():
