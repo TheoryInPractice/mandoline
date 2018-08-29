@@ -302,7 +302,6 @@ class CDAG:
                         assert False
                     res.adhesion_sizes[i].add(parent_adhesion)
 
-
             visited |= frontier
             frontier = res.dependency_dag.out_neighbours_set(visited)
 

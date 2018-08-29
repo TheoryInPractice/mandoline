@@ -69,9 +69,7 @@ class Recorder:
         log.info("Recorded %d linear pieces, %d decompositions of which %d are the basis.", len(self.pieces), len(self.decomps), len(self.base_decomps))
         log.info("  We have %d product-count and %d subtract-count edges", self.product_edges_count, self.subtract_edges_count)
 
-    def output(self, filename):
-        log.info("Writing counting dag to %s", filename)
-
+    def compute_decomp_order(self):
         # Construct dependency DAG for intermediate decompositions
         # in order to output decompositions in a topological order.
         # We know that 'base_decomps' are sources and 'pieces' are sinks,
@@ -93,11 +91,13 @@ class Recorder:
         dag.remove_loops()
 
         _, imap = dag.normalize()
-        decomp_order = imap.order() # Iterator
+        return imap.order() # Iterator
 
-        # Build index for td decompositions. There is a slight complication here
-        # since a decomposition might appear both as a 'base' decomposition and
-        # as a 'decomp' or a 'piece'. Hence the loop unrolling.
+    def compute_index(self):
+        # Compute order in which to compute intermediate decompositions,
+        # e.g. a topological ordering of the dependency-dag.
+        decomp_order = self.compute_decomp_order()
+
         index, index_rev = dict(), []
         curr_index = 0
         for td in self.base_decomps:
@@ -125,6 +125,19 @@ class Recorder:
             assert len(index_rev)-1 == curr_index
             curr_index += 1
         index_pieces = curr_index
+        return index, index_rev, (index_base, index_decomp, index_pieces)
+
+    def output(self, filename):
+        log.info("Writing counting dag to %s", filename)
+
+        # Build index for td decompositions. There is a slight complication here
+        # since a decomposition might appear both as a 'base' decomposition and
+        # as a 'decomp' or a 'piece'. Hence the loop unrolling.
+        index, index_rev, boundaries = self.compute_index()
+        index_base, index_decomp, index_pieces = boundaries
+
+        # Compute adhesion sizes
+        # adh_sizes = self.compute_adhesion_sizes()
 
         # Write to file
         with open(filename, 'w') as f:
