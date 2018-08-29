@@ -627,7 +627,7 @@ class DiGraph:
 class LGraph:
     """
         A graph imbued with a linear order. Optimized
-        fro wcol computation.
+        for wcol computation.
     """
     def __init__(self):
         self.wr = [[]]
