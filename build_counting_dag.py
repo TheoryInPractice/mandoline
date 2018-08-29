@@ -94,30 +94,46 @@ class Recorder:
         _, imap = dag.normalize()
         decomp_order = imap.order() # Iterator!
 
-        index = dict()
+        # Build index
+        index, index_rev = dict(), []
         curr_index = 0
+        for td in self.base_decomps:
+            assert td not in index
+            index[td] = curr_index
+            index_rev.append(td)
+            assert len(index_rev)-1 == curr_index
+            curr_index += 1
+        index_base = curr_index
+        for td in decomp_order:
+            if td in index:
+                assert td in self.base_decomps
+                continue
+            index[td] = curr_index
+            index_rev.append(td)
+            assert len(index_rev)-1 == curr_index
+            curr_index += 1
+        index_decomp = curr_index
+        for td in self.pieces:
+            if td in index:
+                assert td in self.base_decomps
+                continue
+            index[td] = curr_index
+            index_rev.append(td)
+            assert len(index_rev)-1 == curr_index
+            curr_index += 1
+        index_pieces = curr_index
+
+        # Write to file
         with open(filename, 'w') as f:
             f.write('* Base\n')
-            for td in self.base_decomps:
-                index[td] = curr_index
-                f.write('{} {}\n'.format(curr_index, td.td_string()))
-                curr_index += 1
+            for i in range(index_base):
+                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
             f.write('* Composite\n')
-            for td in decomp_order:
-                if td in index:
-                    assert td in self.base_decomps
-                    continue
-                index[td] = curr_index
-                f.write('{} {}\n'.format(curr_index, td.td_string()))
-                curr_index += 1
+            for i in range(index_base, index_decomp):
+                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
             f.write('* Linear\n')
-            for td in self.pieces:
-                if td in index:
-                    assert td in self.base_decomps
-                    continue
-                index[td] = curr_index
-                f.write('{} {}\n'.format(curr_index, td.td_string()))
-                curr_index += 1
+            for i in range(index_decomp, index_pieces):
+                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
             f.write('* Edges\n')
 
             edges_rows = []
