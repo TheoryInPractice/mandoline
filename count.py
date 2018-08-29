@@ -168,6 +168,7 @@ class CDAG:
 
         product_edges = {}
         subtract_edges = defaultdict(dict)
+        adhesion_sizes = defaultdict(SortedSet)
 
         def parse_graph(line):
             var, *rest = line.split()
@@ -183,19 +184,22 @@ class CDAG:
                 res.max_wreach = int(rest[0])
 
         def parse_base(line):
-            _id, td_str = line.split()
+            _id, td_str, *adh = line.split()
             _id = int(_id)
             base_decomps[_id] = TD.from_string(td_str)
+            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_composite(line):
-            _id, td_str = line.split()
+            _id, td_str, *adh = line.split()
             _id = int(_id)
             decomps[_id] = TD.from_string(td_str)
+            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_linear(line):
-            _id, td_str = line.split()
+            _id, td_str, *adh = line.split()
             _id = int(_id)
             pieces[_id] = TD.from_string(td_str)
+            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_edge(line):
             source, lr_string, *sub = list(line.split())
@@ -272,46 +276,7 @@ class CDAG:
         # of a td-pair results in
         res.product_edges = product_edges
         res.subtract_edges = subtract_edges
-
-        # TODO: at this point we could also compute and propagate the wcol-distances
-        # of decompositions, thus pruning the search space for couting pieces.
-        # TODO: this should probably all be done during construction and stored in
-        # the .dag file.
-
-        # Compute adhesion sizes. For base decompositions this is simply zero, meaning
-        # the global counter. For all other decompositions, the values are derived from
-        # the products they are involved in: if decompositions A and B merge together
-        # into decomposition C with a root-path of length r, then A and B need to be
-        # counted for adhesions of length r.
-        res.adhesion_sizes = defaultdict(SortedSet)
-        for i,td in res.base_decomps.items():
-            res.adhesion_sizes[i].add(0) # Simply count
-
-        # Now compute adhesion sizes for all other decompositions
-        visited = set(res.base_decomps)
-        frontier = res.dependency_dag.out_neighbours_set(visited)
-
-        while len(frontier) != 0:
-            for i in frontier:
-                for parent in res.dependency_dag.in_neighbours(i):
-                    parent_adhesion = res.index[parent].adhesion_size()
-                    if parent_adhesion > res.index[i].adhesion_size():
-                        # This issue should be solved since commit a8202d9.
-                        log.fatal("Decomp: ", res.index[i].td_string())
-                        log.fatal("Parent: ", res.index[parent].td_string())
-                        assert False
-                    res.adhesion_sizes[i].add(parent_adhesion)
-
-            visited |= frontier
-            frontier = res.dependency_dag.out_neighbours_set(visited)
-
-        # Sanity check: every decomposition should have at least one adhesion
-        # size for which it needs to be counted
-        for i in chain(pieces, decomps):
-            if len(res.adhesion_sizes[i]) == 0:
-                print(f"Decomposition {i} has no adhesions.")
-                print("In-neighbours:", res.dependency_dag.in_neighbours(i))
-                assert False
+        res.adhesion_sizes = adhesion_sizes
 
         return res
 

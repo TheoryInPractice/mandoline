@@ -98,6 +98,9 @@ class Recorder:
         # e.g. a topological ordering of the dependency-dag.
         decomp_order = self.compute_decomp_order()
 
+        # Build index for td decompositions. There is a slight complication here
+        # since a decomposition might appear both as a 'base' decomposition and
+        # as a 'decomp' or a 'piece'. Hence the loop unrolling.
         index, index_rev = dict(), []
         curr_index = 0
         for td in self.base_decomps:
@@ -127,17 +130,78 @@ class Recorder:
         index_pieces = curr_index
         return index, index_rev, (index_base, index_decomp, index_pieces)
 
+    def compute_adhesion_sizes(self, index, index_rev, boundaries):
+        # Construct CDAG
+        index_base, index_decomp, index_pieces = boundaries
+        dependency_dag = DiGraph()
+        for i,td in enumerate(index_rev):
+            assert i == index[td]
+            dependency_dag.add_node(i)
+
+        for s,(l,r,_) in self.product_edges.items():
+            dependency_dag.add_arc(index[s],index[l])
+            dependency_dag.add_arc(index[s],index[r])
+        for s,N in self.subtract_edges.items():
+            for (t,_) in N:
+                dependency_dag.add_arc(index[s],index[t])
+        dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
+
+        # Sanity checks: base_decomps should be sources, pieces should be sinks
+        # and the indices provide a topological embedding for the graph (hence proving
+        # that it is indeed a DAG).
+        for i in range(index_base):
+            assert dependency_dag.in_degree(i) == 0
+            if dependency_dag.out_degree(i) == 0:
+                assert index_rev[i].is_linear(), '{} {} not linear'.format(i, index_rev[i])
+        for i in range(index_base, index_decomp):
+            assert dependency_dag.in_degree(i) > 0, 'Decomp ({}) {} has in-degree zero'.format(i, index_rev[i].td_string())
+            assert dependency_dag.out_degree(i) > 0
+        for i in range(index_decomp, index_pieces):
+            assert dependency_dag.out_degree(i) == 0
+        for i,j in dependency_dag.arcs():
+            assert i < j
+
+        adhesion_sizes = defaultdict(SortedSet)
+        for i in range(index_base):
+            adhesion_sizes[i].add(0) # Goal is to count these, hence empty adhesion
+
+        # Now compute adhesion sizes for all other decompositions
+        visited = set(range(index_base))
+        frontier = dependency_dag.out_neighbours_set(visited)
+
+        while len(frontier) != 0:
+            for i in frontier:
+                for parent in dependency_dag.in_neighbours(i):
+                    parent_adhesion = index_rev[parent].adhesion_size()
+                    if parent_adhesion > index_rev[i].adhesion_size():
+                        # This issue should be solved since commit a8202d9.
+                        log.fatal("Decomp: ", index_rev[i].td_string())
+                        log.fatal("Parent: ", index_rev[parent].td_string())
+                        assert False
+                    adhesion_sizes[i].add(parent_adhesion)
+
+            visited |= frontier
+            frontier = dependency_dag.out_neighbours_set(visited)
+
+        # Sanity check: every decomposition should have at least one adhesion
+        # size for which it needs to be counted
+        for i in range(index_pieces):
+            if len(adhesion_sizes[i]) == 0:
+                print(f"Decomposition {i} has no adhesions.")
+                print("In-neighbours:", dependency_dag.in_neighbours(i))
+                assert False
+
+        return adhesion_sizes
+
     def output(self, filename):
         log.info("Writing counting dag to %s", filename)
 
-        # Build index for td decompositions. There is a slight complication here
-        # since a decomposition might appear both as a 'base' decomposition and
-        # as a 'decomp' or a 'piece'. Hence the loop unrolling.
+        # Compute index for td decompositions
         index, index_rev, boundaries = self.compute_index()
         index_base, index_decomp, index_pieces = boundaries
 
         # Compute adhesion sizes
-        # adh_sizes = self.compute_adhesion_sizes()
+        adhesion_sizes = self.compute_adhesion_sizes(index, index_rev, boundaries)
 
         # Write to file
         with open(filename, 'w') as f:
@@ -152,13 +216,16 @@ class Recorder:
             # Write decompositions
             f.write('* Base\n')
             for i in range(index_base):
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                adhesions = ' '.join(map(str, adhesion_sizes[i]))
+                f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), adhesions))
             f.write('* Composite\n')
             for i in range(index_base, index_decomp):
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                adhesions = ' '.join(map(str, adhesion_sizes[i]))
+                f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), adhesions))
             f.write('* Linear\n')
             for i in range(index_decomp, index_pieces):
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                adhesions = ' '.join(map(str, adhesion_sizes[i]))
+                f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), adhesions))
 
             # Write 'edges' of counting-DAG
             f.write('* Edges\n')
