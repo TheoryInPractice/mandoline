@@ -53,7 +53,7 @@ if __name__ == "__main__":
         G = G.compute_core(mindeg)
 
     LG, mapping = G.to_lgraph()
-    LG.compute_wr(len(H)-1)
+    LG.compute_wr(cdag.max_wreach)
 
     enum_count = 0
     enum_by_decomp = Counter()

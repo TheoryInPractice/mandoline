@@ -24,6 +24,7 @@ log = logging.getLogger("mandoline")
 class CDAG:
     def __init__(self):
         self.graph = None
+        self.max_wreach = None
         self.index = None # Global index for all decompositions
 
         # The three types of decompositions. 'base_decomps'
@@ -168,6 +169,19 @@ class CDAG:
         product_edges = {}
         subtract_edges = defaultdict(dict)
 
+        def parse_graph(line):
+            var, *rest = line.split()
+            if var == 'nodes':
+                res.graph = Graph()
+                res.graph.add_nodes(map(int, rest))
+            elif var == 'edges':
+                assert res.graph != None
+                edges = [s.split('|') for s in rest]
+                edges = [(int(x),int(y)) for x,y in edges]
+                res.graph.add_edges(edges)
+            elif var == 'wreach':
+                res.max_wreach = int(rest[0])
+
         def parse_base(line):
             _id, td_str = line.split()
             _id = int(_id)
@@ -205,6 +219,7 @@ class CDAG:
         modes['Composite'] = parse_composite
         modes['Linear'] = parse_linear
         modes['Edges'] = parse_edge
+        modes['Graph'] = parse_graph
         with open(filename, 'r') as f:
             mode = None
             for line in f:
@@ -220,7 +235,6 @@ class CDAG:
         for i,td in chain(base_decomps.items(), decomps.items(), pieces.items()):
             res.index.put(i,td)
             res.dependency_dag.add_node(i)
-        res.graph = base_decomps[0].to_graph()
 
         for s,(l,r,_) in product_edges.items():
             res.dependency_dag.add_arc(s,l)
@@ -347,9 +361,10 @@ if __name__ == "__main__":
         G = G.compute_core(mindeg)
         log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
-    log.info("Computing {}-wcol sets".format(len(H)-1))
+    max_wreach = cdag.max_wreach
+    log.info("Computing {}-wcol sets".format(max_wreach))
     LG, mapping = G.to_lgraph()
-    LG.compute_wr(len(H)-1)
+    LG.compute_wr(max_wreach)
     log.info("Done.")
 
     cdag.count(LG)

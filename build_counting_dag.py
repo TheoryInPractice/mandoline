@@ -20,7 +20,8 @@ import logging
 log = logging.getLogger("mandoline")
 
 class Recorder:
-    def __init__(self):
+    def __init__(self, graph):
+        self.graph = graph
         self.pieces = set()
         self.decomps = set()
         self.base_decomps = set()
@@ -92,9 +93,11 @@ class Recorder:
         dag.remove_loops()
 
         _, imap = dag.normalize()
-        decomp_order = imap.order() # Iterator!
+        decomp_order = imap.order() # Iterator
 
-        # Build index
+        # Build index for td decompositions. There is a slight complication here
+        # since a decomposition might appear both as a 'base' decomposition and
+        # as a 'decomp' or a 'piece'. Hence the loop unrolling.
         index, index_rev = dict(), []
         curr_index = 0
         for td in self.base_decomps:
@@ -125,6 +128,15 @@ class Recorder:
 
         # Write to file
         with open(filename, 'w') as f:
+            # Write preamble
+            f.write('* Graph\n')
+            node_str = ' '.join(map(str, self.graph.nodes))
+            f.write('nodes ' + node_str + '\n')
+            edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
+            f.write('edges ' + edge_str + '\n')
+            f.write('wreach {}\n'.format(self.graph.diameter()-1))
+
+            # Write decompositions
             f.write('* Base\n')
             for i in range(index_base):
                 f.write('{} {}\n'.format(i, index_rev[i].td_string()))
@@ -134,8 +146,9 @@ class Recorder:
             f.write('* Linear\n')
             for i in range(index_decomp, index_pieces):
                 f.write('{} {}\n'.format(i, index_rev[i].td_string()))
-            f.write('* Edges\n')
 
+            # Write 'edges' of counting-DAG
+            f.write('* Edges\n')
             edges_rows = []
             for td, (td_left, td_right, auto_coeff) in self.product_edges.items():
                 assert td in index
@@ -549,7 +562,7 @@ if __name__ == "__main__":
     log.info(H)
 
     seen = set()
-    R = Recorder()
+    R = Recorder(H)
     for order in permutations(H):
         tdH = TD.decompose(H, order)
         if tdH in seen:

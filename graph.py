@@ -309,6 +309,15 @@ class Graph:
         root = next(iter(self.nodes))
         return len(self.bfs(root)) == len(self.nodes)
 
+    def diameter(self):
+        if not self.is_connected():
+            return float('inf')
+        return max([self.radius(x) for x in self])
+
+    def radius(self, x):
+        """ Returns the radius of x in its connected component """
+        return len(list(self.bfs_layers(x)))
+
     def connected_components(self):
         n = len(self)
         res = []
@@ -404,6 +413,11 @@ class DiGraph:
 
     def add_node(self,u):
         self.nodes.add(u)
+        return self
+
+    def add_nodes(self, nodes):
+        for u in nodes:
+            self.nodes.add(u)
         return self
 
     def remove_node(self,u):
