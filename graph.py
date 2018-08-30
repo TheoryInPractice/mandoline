@@ -773,7 +773,6 @@ class LGraph:
             matches the provided piece.
         """
         from pattern import PatternMatch
-        assert self.depth() >= len(piece.pattern)-1
 
         if filtered_leaves == None:
             filtered_leaves = set()
@@ -806,7 +805,6 @@ class LGraph:
             must habe been set for this to work.
         """
         from pattern import PatternMatch
-        assert self.depth() >= len(piece.pattern)-1
 
         missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
 

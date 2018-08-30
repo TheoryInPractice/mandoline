@@ -168,7 +168,6 @@ class CDAG:
 
         product_edges = {}
         subtract_edges = defaultdict(dict)
-        adhesion_sizes = defaultdict(SortedSet)
 
         def parse_graph(line):
             var, *rest = line.split()
@@ -187,19 +186,16 @@ class CDAG:
             _id, td_str, *adh = line.split()
             _id = int(_id)
             base_decomps[_id] = TD.from_string(td_str)
-            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_composite(line):
             _id, td_str, *adh = line.split()
             _id = int(_id)
             decomps[_id] = TD.from_string(td_str)
-            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_linear(line):
             _id, td_str, *adh = line.split()
             _id = int(_id)
             pieces[_id] = TD.from_string(td_str)
-            adhesion_sizes[_id].update(map(int, adh))
 
         def parse_edge(line):
             source, lr_string, *sub = list(line.split())
@@ -234,35 +230,68 @@ class CDAG:
                 mode(line)
 
         # Construct CDAG
-        res.index = Indexmap(len(base_decomps)+len(decomps)+len(pieces))
-        res.dependency_dag = DiGraph()
+        index = Indexmap(len(base_decomps)+len(decomps)+len(pieces))
+        dependency_dag = DiGraph()
         for i,td in chain(base_decomps.items(), decomps.items(), pieces.items()):
-            res.index.put(i,td)
-            res.dependency_dag.add_node(i)
+            index.put(i,td)
+            dependency_dag.add_node(i)
 
         for s,(l,r,_) in product_edges.items():
-            res.dependency_dag.add_arc(s,l)
-            res.dependency_dag.add_arc(s,r)
+            dependency_dag.add_arc(s,l)
+            dependency_dag.add_arc(s,r)
         for s,N in subtract_edges.items():
             for t in N:
-                res.dependency_dag.add_arc(s,t)
-        res.dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
+                dependency_dag.add_arc(s,t)
+        dependency_dag.remove_loops() # TODO: investigate why some base decomps have loops.
 
         # Sanity checks: base_decomps should be sources, pieces should be sinks
         # and the indices provide a topological embedding for the graph (hence proving
         # that it is indeed a DAG).
         for i in base_decomps:
-            assert res.dependency_dag.in_degree(i) == 0
-            if res.dependency_dag.out_degree(i) == 0:
-                assert  res.index[i].is_linear()
+            assert dependency_dag.in_degree(i) == 0
+            if dependency_dag.out_degree(i) == 0:
+                assert  index[i].is_linear()
         for i in decomps:
-            assert res.dependency_dag.in_degree(i) > 0, 'Decomp ({}) {} has in-degree zero'.format(i, res.index[i].td_string())
-            assert res.dependency_dag.out_degree(i) > 0
+            assert dependency_dag.in_degree(i) > 0, 'Decomp ({}) {} has in-degree zero'.format(i, index[i].td_string())
+            assert dependency_dag.out_degree(i) > 0
         for i in pieces:
-            assert res.dependency_dag.out_degree(i) == 0
-        for i,j in res.dependency_dag.arcs():
+            assert dependency_dag.out_degree(i) == 0
+        for i,j in dependency_dag.arcs():
             assert i < j
 
+        adhesion_sizes = defaultdict(SortedSet)
+        for i in base_decomps:
+            adhesion_sizes[i].add(0) # Goal is to count these, hence empty adhesion
+
+        # Now compute adhesion sizes for all other decompositions
+        visited = set(base_decomps)
+        frontier = dependency_dag.out_neighbours_set(visited)
+
+        while len(frontier) != 0:
+            for i in frontier:
+                for parent in dependency_dag.in_neighbours(i):
+                    parent_adhesion = index[parent].adhesion_size()
+                    if parent_adhesion > index[i].adhesion_size():
+                        # This issue should be solved since commit a8202d9.
+                        log.fatal("Decomp: ", index[i].td_string())
+                        log.fatal("Parent: ", index[parent].td_string())
+                        assert False
+                    adhesion_sizes[i].add(parent_adhesion)
+
+            visited |= frontier
+            frontier = dependency_dag.out_neighbours_set(visited)
+
+        # Sanity check: every decomposition should have at least one adhesion
+        # size for which it needs to be counted
+        for i in pieces:
+            if len(adhesion_sizes[i]) == 0:
+                print(f"Decomposition {i} has no adhesions.")
+                print("In-neighbours:", dependency_dag.in_neighbours(i))
+                assert False
+
+        res.index = index
+        res.dependency_dag = dependency_dag
+        res.adhesion_sizes = adhesion_sizes
         res.base_decomps = base_decomps
         res.decomps = decomps
         res.pieces = pieces
