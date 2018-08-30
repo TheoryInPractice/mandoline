@@ -8,7 +8,7 @@ from itertools import chain, combinations, permutations, product
 from sortedcontainers import SortedSet
 from datastructures import Indexmap
 
-from helpers import singlehash, pairhash, short_str
+from helpers import singlehash, pairhash, short_str, powerset_nonempty
 
 import bisect
 import math, random
@@ -313,6 +313,12 @@ class Graph:
         if not self.is_connected():
             return float('inf')
         return max([self.radius(x) for x in self])
+
+    def sub_diameter(self):
+        """ Returns maximal diameter over all induced subgraphs """
+        diams = [self.subgraph(S).diameter() for S in powerset_nonempty(self)]
+        diams = [d for d in diams if d != float('inf')]
+        return max(diams)
 
     def radius(self, x):
         """ Returns the radius of x in its connected component """

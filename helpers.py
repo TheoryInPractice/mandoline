@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from itertools import combinations, chain
 
 def CheckExt(choices):
     import argparse, os.path
@@ -61,7 +62,7 @@ def encode_vertex(x):
     if x < 10:
         return str(x) # 0-9
     if x >= 10 and x <= 35:
-        return chr(97 + (x-10)) #a - z
+        return chr(97 + (x-10)) # a-z
     # If necessary: extend to uppercase.
     assert False, "Cannot encode number {}".format(x)
 
@@ -70,9 +71,18 @@ def decode_vertex(c):
     if c >= 48 and c <= 57:
         return c - 48 # 0-9
     if c >= 97 and c <= 122:
-        return c - 87
+        return c - 87 # a-z
     assert False, "Cannot decode character {}".format(c)
 
 if __name__ == "__main__":
     for i in range(100):
         print(i, inthash(inthash(inthash(i))))
+
+
+def powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(0, len(s)+1))
+
+def powerset_nonempty(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))

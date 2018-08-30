@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 
-from helpers import CheckExt, suborder
+from helpers import CheckExt, suborder, powerset_nonempty, powerset
 from tree_decompose import TD, short_str
 
 import logging
@@ -145,7 +145,7 @@ class Recorder:
             f.write('nodes ' + node_str + '\n')
             edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
             f.write('edges ' + edge_str + '\n')
-            f.write('wreach {}\n'.format(self.graph.diameter()-1))
+            f.write('wreach {}\n'.format(self.graph.sub_diameter()-1))
 
             # Write decompositions
             f.write('* Base\n')
@@ -184,14 +184,6 @@ class Recorder:
             for e in sorted(edges_rows):
                 f.write('{} {}x{}|{} {}\n'.format(*e))
         pass
-
-def powerset(iterable):
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(0, len(s)+1))
-
-def powerset_nonempty(iterable):
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
 
 def simulate_count(R, H, td):
     already_known = R.add_base_decomp(td)
