@@ -145,7 +145,7 @@ class Recorder:
             f.write('nodes ' + node_str + '\n')
             edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
             f.write('edges ' + edge_str + '\n')
-            f.write('wreach {}\n'.format(self.graph.sub_diameter()-1))
+            f.write('wreach {}\n'.format(self.graph.sub_diameter()))
 
             # Write decompositions
             f.write('* Base\n')
