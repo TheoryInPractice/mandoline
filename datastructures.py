@@ -52,7 +52,7 @@ class Bimap:
         if self.hash != other.hash:
             return False
         if self.to.items() != other.to.items():
-            return False        
+            return False
         return True
 
     def items(self):
@@ -65,9 +65,11 @@ class Bimap:
         return set(self.fro.keys())
 
     def put(self, u, v):
-        if u in self:
+        if self[u] == v:
+            return # Already paired
+        if self[u] != u:
             raise KeyError("{} already in bimap".format(u))
-        if v in self:
+        if self[v] != v:
             raise KeyError("{} already in bimap".format(v))
         if u == v:
             return
@@ -89,7 +91,7 @@ class Bimap:
 class Indexmap:
     """
         Maps a set of vertices (e.g. arbitrary, hashable objects)
-        to indices [0,...,n-1]. 
+        to indices [0,...,n-1].
         TODO: Find better name since it now does not _only_ store vertices.
     """
     def __init__(self, size):
@@ -129,11 +131,11 @@ class Indexmap:
         return [self.index_to_vertex[i] for i in indices]
 
     def __repr__(self):
-        return 'IM['+','.join(map(str,self.index_to_vertex))+']'        
+        return 'IM['+','.join(map(str,self.index_to_vertex))+']'
 
 
-class TestBimap(unittest.TestCase):            
-    
+class TestBimap(unittest.TestCase):
+
     def test_hashing_equals(self):
         mpA = Bimap()
         mpB = Bimap()
