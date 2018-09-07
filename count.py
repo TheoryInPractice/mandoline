@@ -319,6 +319,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true' )
     parser.add_argument('--no-reduction', action='store_true' )
+    parser.add_argument('--natural-order', action='store_true', help='Use order as given by node ids' )
     parser.add_argument('--output', help='Output file for counting DAG' )
 
     args = parser.parse_args()
@@ -356,7 +357,12 @@ if __name__ == "__main__":
 
     max_wreach = cdag.max_wreach
     log.info("Computing {}-wcol sets".format(max_wreach))
-    LG, mapping = G.to_lgraph()
+
+    if args.natural_order:
+        log.info("Using ascending order of input graph")
+        LG, mapping = G.to_lgraph(sorted(G))
+    else:
+        LG, mapping = G.to_lgraph()
     LG.compute_wr(max_wreach)
     log.info("Done.")
 
