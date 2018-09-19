@@ -348,6 +348,19 @@ class Graph:
                 res.add_edge(u,v)
         return res
 
+    def distances(self, u):
+        res = {}
+        for i,layer in enumerate(self.bfs_layers(u)):
+            for v in layer:
+                res[v] = i
+        return res
+
+    def all_distances(self):
+        res = {}
+        for u in self:
+            res[u] = self.distances(u)
+        return res
+
     def bfs(self, root):
         res = set()
         for layer in self.bfs_layers(root):

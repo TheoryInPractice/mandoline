@@ -130,12 +130,86 @@ class Recorder:
         index_pieces = curr_index
         return index, index_rev, (index_base, index_decomp, index_pieces)
 
+    def compute_nroot_hints(self, index, index_rev):
+        # This procedure identifies the maximum wreach-distance that
+        # an nroot might (to all other vertices) in linear decomposition by
+        # computing those distance in all parent-patterns.
+
+        product_parents = defaultdict(set)
+
+        for parent, (left, right, _) in self.product_edges.items():
+            product_parents[index[left]].add(index[parent])
+            product_parents[index[right]].add(index[parent])
+
+        nroot_hints = defaultdict(list)
+
+        def element_max(dictA, dictB):
+            res = {}
+            res.update(dictA)
+            res.update(dictB)
+            for k in (dictA.keys() &  dictB.keys()):
+                res[k] = max(dictA[k], dictB[k])
+            return res
+
+        def find_distances(i, nroots, depth=0):
+            res = dict([(x,{}) for x in nroots])
+            for p in product_parents[i]:
+                td_parent = index_rev[p]
+                dists = td_parent.to_graph().all_distances()
+                # print(" "*(2*depth+1), p, index_rev[p].td_string())
+                for r in nroots:
+                    if r not in dists:
+                        rec = find_distances(p, set([r]), depth+1)
+                        res[r] = element_max(res[r], rec[r])
+                    else:
+                        # print(" "*(2*depth+1), r, dists[r])
+                        res[r] = element_max(res[r], dists[r])
+            return res
+
+        for i in range(len(index_rev)):
+            td = index_rev[i]
+
+            if not td.is_linear():
+                continue
+
+            graph = td.to_graph()
+            piece = td.to_piece(len(graph));
+            nroots = SortedSet(piece.nroots) # There are indices, not vertice!
+            nroots.remove(piece.depth()-1) # Remove roots of piece, it's alway an nroot
+
+            if len(nroots) == 0:
+                continue
+
+            dist = graph.all_distances()
+            order = next(td.orders()) # Piece is linear, so there is only one order
+
+            nroots = SortedSet([order[r] for r in nroots]) # Map indices to vertices
+
+            # print(i, td.td_string(), td, nroots, order);
+            res = find_distances(i, nroots)
+            for r in nroots:
+                # print("  ", r, res[r])
+                by_index = [res[r][x] for x in order]
+                # print("  ", order.index(r), by_index)
+                nroot_hints[i].append(by_index)
+
+        return nroot_hints
+
     def output(self, filename):
         log.info("Writing counting dag to %s", filename)
 
         # Compute index for td decompositions
         index, index_rev, boundaries = self.compute_index()
         index_base, index_decomp, index_pieces = boundaries
+
+        nroot_hints = self.compute_nroot_hints(index, index_rev)
+
+        # Determine maximum wreach needed
+        max_wreach = 0
+        for hints in nroot_hints.values():
+            for h in hints:
+                max_wreach = max(max_wreach, sorted(h)[1]) # Smallest value is always 0
+        print("Maximum wreach necessary is", max_wreach)
 
         # Write to file
         with open(filename, 'w') as f:
@@ -145,18 +219,24 @@ class Recorder:
             f.write('nodes ' + node_str + '\n')
             edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
             f.write('edges ' + edge_str + '\n')
-            f.write('wreach {}\n'.format(self.graph.sub_diameter()))
+            f.write('wreach {}\n'.format(max_wreach+1))
 
             # Write decompositions
             f.write('* Base\n')
             for i in range(index_base):
+                assert(i not in nroot_hints)
                 f.write('{} {}\n'.format(i, index_rev[i].td_string()))
             f.write('* Composite\n')
             for i in range(index_base, index_decomp):
+                assert(i not in nroot_hints)
                 f.write('{} {}\n'.format(i, index_rev[i].td_string()))
             f.write('* Linear\n')
             for i in range(index_decomp, index_pieces):
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                if i in nroot_hints:
+                    nroot_str = ' '.join(['|'.join(map(str, hint)) for hint in nroot_hints[i]])
+                    f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), nroot_str))
+                else:
+                    f.write('{} {}\n'.format(i, index_rev[i].td_string()))
 
             # Write 'edges' of counting-DAG
             f.write('* Edges\n')

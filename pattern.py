@@ -1,4 +1,4 @@
-from graph import Graph, LGraph 
+from graph import Graph, LGraph
 import math
 import unittest
 import bisect
@@ -212,7 +212,7 @@ class PatternMatch:
     def __hash__(self):
         return self.index_to_vertex.__hash__()
 
-    def __eq__(self, other):    
+    def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.LG == other.LG and self.pattern == other.pattern and self.index_to_vertex == other.index_to_vertex
         # return False
@@ -225,7 +225,7 @@ class PatternBuilder:
         self.graph = Graph()
         for i in range(size):
             self.graph.add_node(i)
-        self.size = size            
+        self.size = size
 
     def add_edge(self, u, v):
         self.graph.add_edge(u,v)
@@ -335,7 +335,7 @@ class Pattern:
             vertex_hash = fnv_offset
             for iv in iN:
                 vertex_hash = vertex_hash ^ iu
-                vertex_hash = (vertex_hash * fnv_prime) % modulo                    
+                vertex_hash = (vertex_hash * fnv_prime) % modulo
                 vertex_hash = vertex_hash ^ iv
                 vertex_hash = (vertex_hash * fnv_prime) % modulo
             layer_hash = layer_hash ^ vertex_hash
@@ -406,7 +406,7 @@ class Pattern:
         return Piece(self, root, [], leaves)
 
     def __repr__(self):
-        return 'PT'+','.join(map(lambda s: short_str(list(s)),self.in_neighbours)) 
+        return 'PT'+','.join(map(lambda s: short_str(list(s)),self.in_neighbours))
 
     def draw_subgraph(self, ctx, nodes, colors):
         node_col = (0,0,0)
@@ -439,8 +439,8 @@ class Pattern:
         offx = -bbox.left
 
         # Draw edges
-        ctx.set_line_width(1.5)      
-        for iu in self:   
+        ctx.set_line_width(1.5)
+        for iu in self:
             ux, uy = coords(iu)
             for iv in self.in_neighbours[iu]:
                 vx, vy = coords(iv)
@@ -448,7 +448,7 @@ class Pattern:
                 if iu not in nodes or iv not in nodes:
                     ctx.set_source_rgb(*edge_col_inactive)
                 else:
-                    ctx.set_source_rgb(*edge_col)     
+                    ctx.set_source_rgb(*edge_col)
 
                 if iv == iu-1:
                     ctx.move_to(ux, uy)
@@ -469,14 +469,14 @@ class Pattern:
                 ctx.set_source_rgb(*node_col_inactive)
             else:
                 ctx.set_source_rgb(*node_col)
-            ctx.fill()    
+            ctx.fill()
 
         # Return bounding box
         bbox.move(offx, offy)
         return bbox
 
     def draw(self, ctx):
-        return self.draw_subgraph(ctx, set(self), set())   
+        return self.draw_subgraph(ctx, set(self), set())
 
 class Piece:
     def __init__(self, pattern, root, previous_roots, leaves):
@@ -491,11 +491,11 @@ class Piece:
         self.root_dist = pattern.wr_dist[root]
 
         # At this point this is pure paranoia
-        self.leaves.sort() 
+        self.leaves.sort()
 
         # Compute 'covering' set of vertices from which _all_
         # leaves can be reached monotonically. The idea is that
-        # these vertices are the only ones that we have to find 
+        # these vertices are the only ones that we have to find
         # in WReach, all other vertices can then be found via
         # bfs through back_neighbour sets (which are much smaller)
         nroots = []
@@ -533,7 +533,7 @@ class Piece:
         # fnv-style 64 bit hash
         fnv_prime = 1099511628211
         fnv_offset = 14695981039346656037
-        modulo = 2 << 64 
+        modulo = 2 << 64
 
         h = fnv_offset
         h = ((h ^ self.root) * fnv_prime ) % modulo
@@ -562,7 +562,7 @@ class Piece:
     def __repr__(self):
         return "Piece {} ({}) {{{}}}".format(
                 " ".join(map(str,self.leaves)),
-                 self.root, 
+                 self.root,
                 ", ".join(map(str,self.root_dist)))
 
     def adjacent(self, u, v):
@@ -622,19 +622,19 @@ class TestPatternMethods(unittest.TestCase):
     def test_decompose(self):
         H = PatternBuilder(4) \
                 .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
-                .build() 
+                .build()
         self.assertEqual(len(list(H.decompose())), 2)
 
     def test_equality(self):
         H1 = PatternBuilder(4) \
                 .add_edge(0,1).add_edge(0,2).add_edge(1,3) \
-                .build() 
+                .build()
         H2 = PatternBuilder(4) \
                 .add_edge(1,3).add_edge(2,0).add_edge(1,0) \
-                .build() 
+                .build()
         H3 = PatternBuilder(4) \
                 .add_edge(0,1).add_edge(1,2).add_edge(1,3) \
-                .build() 
+                .build()
 
         self.assertEqual(H1, H1)
         self.assertEqual(H2, H2)
