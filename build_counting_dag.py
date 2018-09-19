@@ -11,6 +11,7 @@ import sys
 from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
+from operator import itemgetter
 
 from helpers import CheckExt, suborder, powerset_nonempty, powerset
 from tree_decompose import TD, short_str
@@ -131,9 +132,10 @@ class Recorder:
         return index, index_rev, (index_base, index_decomp, index_pieces)
 
     def compute_nroot_hints(self, index, index_rev):
-        # This procedure identifies the maximum wreach-distance that
-        # an nroot might (to all other vertices) in linear decomposition by
-        # computing those distance in all parent-patterns.
+        # This procedure identifies for each nroot a vertex u and a distance r
+        # such that the nroot in question lies in the r-wreach set of u. We
+        # know that such a vertex exists because we only decompose connected
+        # graphs.
 
         product_parents = defaultdict(set)
 
@@ -174,7 +176,7 @@ class Recorder:
 
             graph = td.to_graph()
             piece = td.to_piece(len(graph));
-            nroots = SortedSet(piece.nroots) # There are indices, not vertice!
+            nroots = SortedSet(piece.nroots) # These are indices, not vertices!
             nroots.remove(piece.depth()-1) # Remove roots of piece, it's alway an nroot
 
             if len(nroots) == 0:
@@ -186,12 +188,13 @@ class Recorder:
             nroots = SortedSet([order[r] for r in nroots]) # Map indices to vertices
 
             # print(i, td.td_string(), td, nroots, order);
-            res = find_distances(i, nroots)
+            nroot_dists = find_distances(i, nroots)
             for r in nroots:
-                # print("  ", r, res[r])
-                by_index = [res[r][x] for x in order]
-                # print("  ", order.index(r), by_index)
-                nroot_hints[i].append(by_index)
+                r_index = order.index(r)
+                # Pair nroot index, hint index with distances
+                cands = [(r_index, i, nroot_dists[r][x]) for (i,x) in enumerate(order)]
+                cands = cands[r_index+1:] # Only allow vertices to the right of r
+                nroot_hints[i].append(min(cands, key=itemgetter(2)))
 
         return nroot_hints
 
@@ -207,9 +210,8 @@ class Recorder:
         # Determine maximum wreach needed
         max_wreach = 0
         for hints in nroot_hints.values():
-            for h in hints:
-                max_wreach = max(max_wreach, sorted(h)[1]) # Smallest value is always 0
-        print("Maximum wreach necessary is", max_wreach)
+            for (_,_,dist) in hints:
+                max_wreach = max(max_wreach, dist)
 
         # Write to file
         with open(filename, 'w') as f:
@@ -233,7 +235,8 @@ class Recorder:
             f.write('* Linear\n')
             for i in range(index_decomp, index_pieces):
                 if i in nroot_hints:
-                    nroot_str = ' '.join(['|'.join(map(str, hint)) for hint in nroot_hints[i]])
+                    # nroot_hints[i] contains tuples of the form (nroot_index, hint_index, wreach_dist)
+                    nroot_str = ' '.join(map(lambda e: '{}|{}|{}'.format(*e) , nroot_hints[i]))
                     f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), nroot_str))
                 else:
                     f.write('{} {}\n'.format(i, index_rev[i].td_string()))
