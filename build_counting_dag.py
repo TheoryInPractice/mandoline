@@ -191,8 +191,8 @@ class Recorder:
             nroot_dists = find_distances(i, nroots)
             for r in nroots:
                 r_index = order.index(r)
-                # Pair nroot index, hint index with distances
-                cands = [(r_index, i, nroot_dists[r][x]) for (i,x) in enumerate(order)]
+                # Pair nroot index, hint index with distances (+1 to convert to wreach-neighbourhood)
+                cands = [(r_index, i, nroot_dists[r][x]+1) for (i,x) in enumerate(order)]
                 cands = cands[r_index+1:] # Only allow vertices to the right of r
                 nroot_hints[i].append(min(cands, key=itemgetter(2)))
 
@@ -208,7 +208,7 @@ class Recorder:
         nroot_hints = self.compute_nroot_hints(index, index_rev)
 
         # Determine maximum wreach needed
-        max_wreach = 0
+        max_wreach = 1
         for hints in nroot_hints.values():
             for (_,_,dist) in hints:
                 max_wreach = max(max_wreach, dist)
@@ -221,7 +221,7 @@ class Recorder:
             f.write('nodes ' + node_str + '\n')
             edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
             f.write('edges ' + edge_str + '\n')
-            f.write('wreach {}\n'.format(max_wreach+1))
+            f.write('wreach {}\n'.format(max_wreach))
 
             # Write decompositions
             f.write('* Base\n')
