@@ -21,6 +21,11 @@
 			transform: translate(0px, 1.5em);
 		}
 
+		#graph {
+			text-align: center;
+			padding-top: 10%;
+		}
+
 		.wr1 { fill: #00d4ae; }
 		.wr2 { fill: #e95fce; }
 		.wr3 { fill: #ef8ada; }
@@ -34,8 +39,26 @@
 <div id="graph"></div>
 
 <script type="text/javascript">
+function getUrlVars()
+{
+    var vars = [], hash;
+    var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+    for(var i = 0; i < hashes.length; i++) {
+        hash = hashes[i].split('=');
+        vars.push(hash[0]);
+        vars[hash[0]] = hash[1];
+    }
+    return vars;
+}
+
 (function(d3) {
 	var target = "karate_3_natural.wreach";
+
+	var params = getUrlVars();
+	if("target" in params) {
+		target = params["target"];
+	}
+
 	// target = "path_4.wreach";
 
 	var vis = d3.select("#graph").append("svg");
