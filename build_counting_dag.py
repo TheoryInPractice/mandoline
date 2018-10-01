@@ -191,8 +191,8 @@ class Recorder:
             nroot_dists = find_distances(i, nroots)
             for r in nroots:
                 r_index = order.index(r)
-                # Pair nroot index, hint index with distances (+1 to convert to wreach-neighbourhood)
-                cands = [(r_index, i, nroot_dists[r][x]+1) for (i,x) in enumerate(order)]
+                # Pair nroot index, hint index with distances
+                cands = [(r_index, i, nroot_dists[r][x]) for (i,x) in enumerate(order)]
                 cands = cands[r_index+1:] # Only allow vertices to the right of r
                 nroot_hints[i].append(min(cands, key=itemgetter(2)))
 

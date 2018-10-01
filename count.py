@@ -363,7 +363,7 @@ if __name__ == "__main__":
         LG, mapping = G.to_lgraph(sorted(G))
     else:
         LG, mapping = G.to_lgraph()
-    LG.compute_wr(max_wreach)
+    LG.compute_wr(max_wreach+1)
     log.info("Done.")
 
     cdag.count(LG)
