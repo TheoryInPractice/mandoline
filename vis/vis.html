@@ -1,6 +1,6 @@
 <html>
 <head>
-	<meta charset="UTF-8"> 
+	<meta charset="UTF-8">
 	<script src="d3.js"></script>
 	<style>
 		circle.nodes {
@@ -35,7 +35,7 @@
 
 <script type="text/javascript">
 (function(d3) {
-	var target = "karate_4.wreach";
+	var target = "karate_3_natural.wreach";
 	// target = "path_4.wreach";
 
 	var vis = d3.select("#graph").append("svg");
@@ -88,7 +88,7 @@
 			.append("path")
 			.attr("class", "edge")
 			.attr("d", function(edge){
-				var sx = xpos(edge[0]); 
+				var sx = xpos(edge[0]);
 				var tx = xpos(edge[1]);
 				var sy = ypos
 				var ty = ypos
@@ -145,8 +145,8 @@
 				console.log(wrgroups[i])
 				wrgroups[i].forEach(function(elem,index){
 					elem.transition().duration(100).style("opacity", 0)
-				});	
-				d3.select(this).transition().duration(100).attr("r", rad);			
+				});
+				d3.select(this).transition().duration(100).attr("r", rad);
 			})
 
 		// Draw labels
