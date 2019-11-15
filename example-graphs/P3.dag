@@ -1,0 +1,14 @@
+* Graph
+nodes 0 1 2
+edges 0|1 1|2
+wreach 1
+* Base
+0 .{0|0}
+1 .,0,1
+2 .,.,01
+* Composite
+* Linear
+3 .,0,01
+4 .,0
+* Edges
+0 4x4|2 3|2 4|1
