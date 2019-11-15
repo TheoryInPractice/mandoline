@@ -219,7 +219,7 @@ class Recorder:
             f.write('* Graph\n')
             node_str = ' '.join(map(str, self.graph.nodes))
             f.write('nodes ' + node_str + '\n')
-            edge_str = ' '.join(map(lambda x: f'{x[0]}|{x[1]}', self.graph.edges()))
+            edge_str = ' '.join(map(lambda x: '{}|{}'.format(x[0],x[1]), self.graph.edges()))
             f.write('edges ' + edge_str + '\n')
             f.write('wreach {}\n'.format(max_wreach))
 
