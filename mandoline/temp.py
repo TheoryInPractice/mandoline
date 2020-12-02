@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys, os
 
 def stats(file):
     total = 0
@@ -30,19 +29,24 @@ def stats(file):
             edges += len(l.split()) - 1
     return total, leaves, edges, dist
 
-graphs = ['P{}'.format(i) for i in range(3,6)]
-graphs += ['C{}'.format(i) for i in range(4,7)]
-graphs += ['S{}'.format(i) for i in range(3,6)]
-graphs += ['W{}'.format(i) for i in range(3,7)]
-graphs += ['K{},{}'.format(i,i) for i in range(3,6)]
 
-# for H in graphs:
-#     name = H[0] + "_{" + H[1:] + "}"
-#     total, leaves, edges, dist = stats('example-graphs/{}.dag'.format(H))
-#     print("${}$ & {} ({}) & {} & {} \\\\".format(name, total, leaves, edges, dist))    
+def main():
+    graphs = ['P{}'.format(i) for i in range(3,6)]
+    graphs += ['C{}'.format(i) for i in range(4,7)]
+    graphs += ['S{}'.format(i) for i in range(3,6)]
+    graphs += ['W{}'.format(i) for i in range(3,7)]
+    graphs += ['K{},{}'.format(i,i) for i in range(3,6)]
 
-n = 4
-for H in ['diamond', 'paw']:
-    total, leaves, edges, dist = stats('example-graphs/{}.dag'.format(H))
-    print("{} & {} & {} ({}) & {} & {} \\\\".format(n, H, total, leaves, edges, dist)) 
-    n = ''
+    # for H in graphs:
+    #     name = H[0] + "_{" + H[1:] + "}"
+    #     total, leaves, edges, dist = stats('example-graphs/{}.dag'.format(H))
+    #     print("${}$ & {} ({}) & {} & {} \\\\".format(name, total, leaves, edges, dist))
+
+    n = 4
+    for H in ['diamond', 'paw']:
+        total, leaves, edges, dist = stats('example-graphs/{}.dag'.format(H))
+        print("{} & {} & {} ({}) & {} & {} \\\\".format(n, H, total, leaves, edges, dist))
+        n = ''
+
+if __name__ == "__main__":
+    main()

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from .graph import Graph, load_graph
-from .pattern import PatternBuilder, Pattern
-import math, random
+import random
 
+from .pattern import PatternBuilder
 
+# from .graph import load_graph
 # G = load_graph('lesmiserables.txt.gz')
 # G = load_graph('karate.txt.gz')
 

@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 
-from .graph import Graph, DiGraph, DAGError, load_graph
-from .datastructures import Bimap, Indexmap, Interval
-from .pattern import PatternBuilder, Pattern
 from sortedcontainers import SortedSet
 
 import argparse
-import itertools
 import sys
 
 from collections import defaultdict, Counter
-from sortedcontainers import SortedSet
-from itertools import permutations, product, combinations, chain
-import bisect
-import math, random
-
-from .tree_decompose import TD, short_str
+from itertools import chain
 
 import logging
+
+from .graph import Graph, DiGraph, load_graph
+from .datastructures import Indexmap
+from .tree_decompose import TD
+
 
 log = logging.getLogger("mandoline")
 
@@ -76,7 +72,7 @@ class CDAG:
             log.info("\nCounting %s %s", i, self.index[i].td_string())
             left, right, auto_coeff = self.product_edges[i]
 
-            td, td_left, td_right = self.index[i], self.index[left], self.index[right]
+            td, _, _ = self.index[i], self.index[left], self.index[right]
             adh_count_size = self.index[i].adhesion_size()
             for adh in (adhesions[left] & adhesions[right]):
                 if len(adh) != adh_count_size:
@@ -360,9 +356,9 @@ def main():
 
     if args.natural_order:
         log.info("Using ascending order of input graph")
-        LG, mapping = G.to_lgraph(sorted(G))
+        LG, _ = G.to_lgraph(sorted(G))
     else:
-        LG, mapping = G.to_lgraph()
+        LG, _ = G.to_lgraph()
     LG.compute_wr(max_wreach+1)
     log.info("Done.")
 

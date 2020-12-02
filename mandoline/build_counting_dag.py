@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
-from .graph import Graph, DiGraph, DAGError, load_graph
-from .datastructures import Bimap
-from .pattern import PatternBuilder, Pattern
-
 import argparse
-import itertools
 import sys
 
-from collections import defaultdict, Counter
+from collections import defaultdict
 from sortedcontainers import SortedSet
-from itertools import permutations, product, combinations, chain
+from itertools import permutations, product, chain
 from operator import itemgetter
 
-from .helpers import CheckExt, suborder, powerset_nonempty, powerset
-from .tree_decompose import TD, short_str
-
 import logging
+
+from .graph import DiGraph, load_graph
+from .datastructures import Bimap
+
+from .helpers import CheckExt, suborder, powerset_nonempty, powerset
+from .helpers import short_str
+from .tree_decompose import TD
+
+
 
 log = logging.getLogger("mandoline")
 
@@ -175,14 +176,14 @@ class Recorder:
                 continue
 
             graph = td.to_graph()
-            piece = td.to_piece(len(graph));
+            piece = td.to_piece(len(graph))
             nroots = SortedSet(piece.nroots) # These are indices, not vertices!
             nroots.remove(piece.depth()-1) # Remove roots of piece, it's alway an nroot
 
             if len(nroots) == 0:
                 continue
 
-            dist = graph.all_distances()
+            # dist = graph.all_distances()  # TODO unused, delete?
             order = next(td.orders()) # Piece is linear, so there is only one order
 
             nroots = SortedSet([order[r] for r in nroots]) # Map indices to vertices
@@ -266,7 +267,7 @@ class Recorder:
 
             for e in sorted(edges_rows):
                 f.write('{} {}x{}|{} {}\n'.format(*e))
-        pass
+
 
 def simulate_count(R, H, td):
     already_known = R.add_base_decomp(td)
@@ -313,8 +314,6 @@ def _simulate_count_rec(R, H, td, depth):
 
         nodesA, nodesB, _ = td_overlap(tdA, tdB)
 
-        subisosAintoB = 0
-        subisosBintoA = 0
         for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):
             # Note: The resulting merge is labelled with vertices from nodesB,
             #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting
@@ -374,7 +373,7 @@ def enumerate_merges(decompA, decompB):
     assert len(rootPath) > 0 # Paranoia: decompositions must have common root-path.
     assert rootPath == decompB._sep[:len(rootPathSet)]
 
-    nodesA, nodesB, nodesAll = td_overlap(decompA, decompB)
+    nodesA, nodesB, _ = td_overlap(decompA, decompB)
 
     decompJoint = decompA.merge(decompB, len(rootPath))
     dagJoint = decompJoint.to_ditree()

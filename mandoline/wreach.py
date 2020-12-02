@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import sys
-from .graph import Graph, load_graph
-from .pattern import Pattern
 import argparse
+
+from .graph import load_graph
 
 def main():
     parser = argparse.ArgumentParser(description='Computes wreach sets of a graph and prints them to the terminal.')

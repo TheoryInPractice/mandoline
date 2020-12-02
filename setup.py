@@ -15,6 +15,7 @@ setuptools.setup(
             "mandoline_show_pattern_decomposition=mandoline:show_pattern_decomposition",
             "mandoline_wreach=mandoline:wreach",
             "mandoline_enumerate=mandoline:enumerate_",
+            "mandoline_stats=mandoline:stats",
         ]
     },
 )

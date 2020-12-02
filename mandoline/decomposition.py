@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from .graph import Graph, load_graph
-from collections import Counter
-from .pattern import PatternBuilder, Pattern
-import sys, math, random
 import argparse
-
+import sys
 import logging
+
+from .graph import load_graph
 
 log = logging.getLogger("mandoline")
 
@@ -40,7 +38,7 @@ def main():
     all_pieces = set()
     secondary_pieces = set()
 
-    for pattern,indexmap in H.enum_patterns():
+    for pattern, _ in H.enum_patterns():
         log.debug("%s %d", pattern, hash(pattern))
         count_patterns += 1
 

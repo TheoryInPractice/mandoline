@@ -2,18 +2,18 @@
 import itertools
 from collections import defaultdict as defaultdict
 import gzip
-from operator import itemgetter
-from itertools import chain, combinations, permutations, product
+from itertools import chain, permutations, product
 
 from sortedcontainers import SortedSet
-from .datastructures import Indexmap
 
-from .helpers import singlehash, pairhash, short_str, powerset_nonempty
 
 import bisect
-import math, random
+import random
 import unittest
 import logging
+
+from .datastructures import Indexmap
+from .helpers import singlehash, pairhash, short_str, powerset_nonempty
 
 log = logging.getLogger("mandoline")
 
@@ -823,7 +823,6 @@ class LGraph:
             all vertices of the given piece. All roots
             must habe been set for this to work.
         """
-        from .pattern import PatternMatch
 
         missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
 

@@ -6,3 +6,4 @@ from .decomposition import main as decomposition
 from .show_pattern_decomposition import main as show_pattern_decomposition
 from .wreach import main as wreach
 from .enumerate import main as enumerate_
+from .temp import main as stats
