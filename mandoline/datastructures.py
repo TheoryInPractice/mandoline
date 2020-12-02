@@ -1,5 +1,5 @@
 import unittest
-from helpers import short_str, pairhash
+from .helpers import short_str, pairhash
 
 class Interval:
     def __init__(self, low, high):

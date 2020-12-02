@@ -1,4 +1,4 @@
-from graph import Graph, LGraph
+from .graph import Graph, LGraph
 import math
 import unittest
 import bisect
@@ -6,7 +6,7 @@ import bisect
 from sortedcontainers import SortedSet
 
 import logging
-from helpers import short_str
+from .helpers import short_str
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class PatternMatch:
         return [(i,self.index_to_vertex[i]) for i in indices if self.index_to_vertex[i] != None ]
 
     def rightmost_unmatched(self):
-        for i,iv in reverse(enumerate(self.index_to_vertex)):
+        for i,iv in reversed(enumerate(self.index_to_vertex)):
             if iv == None:
                 return i
         return None

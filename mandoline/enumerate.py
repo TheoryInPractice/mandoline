@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
+from .graph import Graph, load_graph
+from .pattern import PatternBuilder, Pattern
 
 import argparse
 import itertools
@@ -257,7 +257,7 @@ def assemble_pieces(LG, pieces, recorder):
                     log.debug(">>> %s", match)
                     recorder.record(match)
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='Enumerates H in G')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -336,3 +336,7 @@ if __name__ == "__main__":
 
     # Always print the final count, even in --quiet mode.
     print("\nTotal graph count: {}".format(count))
+
+
+if __name__ == "__main__":
+    main()

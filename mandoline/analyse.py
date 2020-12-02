@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
+from .graph import Graph, load_graph
+from .pattern import PatternBuilder, Pattern
 
 import argparse
 import itertools
@@ -11,9 +11,9 @@ from collections import defaultdict, Counter
 from sortedcontainers import SortedSet
 import bisect
 import math, random
-import cairo
 
-from enumerate import find_matches
+
+from .enumerate import find_matches
 
 import logging
 
@@ -25,7 +25,7 @@ def find_matches_adh(LG, piece, adhesion):
         for match in LG.match(iu, piece):
             yield match
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='Enumerates H in G')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -82,3 +82,7 @@ if __name__ == "__main__":
         total += count
         log.info("  Found {} matches".format(count))
     log.info("Collected {} total matches".format(total))
+
+
+if __name__ == "__main__":
+    main()

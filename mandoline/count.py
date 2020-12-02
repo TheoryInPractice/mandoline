@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DiGraph, DAGError, load_graph
-from datastructures import Bimap, Indexmap, Interval
-from pattern import PatternBuilder, Pattern
+from .graph import Graph, DiGraph, DAGError, load_graph
+from .datastructures import Bimap, Indexmap, Interval
+from .pattern import PatternBuilder, Pattern
 from sortedcontainers import SortedSet
 
 import argparse
@@ -15,7 +15,7 @@ from itertools import permutations, product, combinations, chain
 import bisect
 import math, random
 
-from tree_decompose import TD, short_str
+from .tree_decompose import TD, short_str
 
 import logging
 
@@ -273,8 +273,8 @@ class CDAG:
                     parent_adhesion = index[parent].adhesion_size()
                     if parent_adhesion > index[i].adhesion_size():
                         # This issue should be solved since commit a8202d9.
-                        log.fatal("Decomp: ", index[i].td_string())
-                        log.fatal("Parent: ", index[parent].td_string())
+                        log.fatal("Decomp: {}".format(index[i].td_string()))
+                        log.fatal("Parent: {}".format(index[parent].td_string()))
                         assert False
                     adhesion_sizes[i].add(parent_adhesion)
 
@@ -310,8 +310,8 @@ class CDAG:
         return res
 
 
-if __name__ == "__main__":
-    from helpers import CheckExt
+def main():
+    from .helpers import CheckExt
     parser = argparse.ArgumentParser(description='Counts subgraph in G according to counting DAG file')
 
     parser.add_argument('cdag', help='Counting DAG file', action=CheckExt({'dag'}))
@@ -367,3 +367,6 @@ if __name__ == "__main__":
     log.info("Done.")
 
     cdag.count(LG)
+
+if __name__ == "__main__":
+    main()

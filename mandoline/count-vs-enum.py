@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
+from .graph import Graph, load_graph
+from .pattern import PatternBuilder, Pattern
 from colorama import *
 
 import argparse
 import itertools
 import sys
 
-from helpers import CheckExt
+from .helpers import CheckExt
 
 from collections import defaultdict, Counter
 from sortedcontainers import SortedSet

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DiGraph, DAGError, load_graph
-from datastructures import Bimap
-from pattern import PatternBuilder, Pattern
+from .graph import Graph, DiGraph, DAGError, load_graph
+from .datastructures import Bimap
+from .pattern import PatternBuilder, Pattern
 
 import argparse
 import itertools
@@ -13,8 +13,8 @@ from sortedcontainers import SortedSet
 from itertools import permutations, product, combinations, chain
 from operator import itemgetter
 
-from helpers import CheckExt, suborder, powerset_nonempty, powerset
-from tree_decompose import TD, short_str
+from .helpers import CheckExt, suborder, powerset_nonempty, powerset
+from .tree_decompose import TD, short_str
 
 import logging
 
@@ -617,7 +617,8 @@ def compute_coefficient(td, nodesA, nodesB, defect):
 
     return count
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(description='Counts H in G')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -671,3 +672,6 @@ if __name__ == "__main__":
 
     if args.output:
         R.output(args.output)
+
+if __name__ == "__main__":
+    main()

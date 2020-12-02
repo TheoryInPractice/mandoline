@@ -76,7 +76,7 @@ def decode_vertex(c):
 
 if __name__ == "__main__":
     for i in range(100):
-        print(i, inthash(inthash(inthash(i))))
+        print(i, singlehash(singlehash(singlehash(i))))
 
 
 def powerset(iterable):
