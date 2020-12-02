@@ -1,31 +1,24 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
-
 import argparse
-import itertools
 import sys
 
-from collections import defaultdict, Counter
+from collections import defaultdict
 from sortedcontainers import SortedSet
-import bisect
-import math, random
-import cairo
-
-from enumerate import find_matches
 
 import logging
-
 log = logging.getLogger("mandoline")
 
+from .graph import load_graph
+
+
+
 def find_matches_adh(LG, piece, adhesion):
-    matches = defaultdict(SortedSet)
     for iu in LG:
         for match in LG.match(iu, piece):
             yield match
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='Enumerates H in G')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -58,13 +51,11 @@ if __name__ == "__main__":
 
     log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
-    LG, mapping = G.to_lgraph()
+    LG, _ = G.to_lgraph()
     LG.compute_wr(len(H)-1)
 
-    marked = set() # Mark vertices that are useful for at least one patter
-    
     pieces = set()
-    for P,indexmap in H.enum_patterns():
+    for P, _ in H.enum_patterns():
         pieces.update(P.decompose())
 
     log.info("Computed all {} pieces".format(len(pieces)))
@@ -82,3 +73,7 @@ if __name__ == "__main__":
         total += count
         log.info("  Found {} matches".format(count))
     log.info("Collected {} total matches".format(total))
+
+
+if __name__ == "__main__":
+    main()

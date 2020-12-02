@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from collections import Counter
-from pattern import PatternBuilder, Pattern
-import sys, math, random
 import argparse
-
+import sys
 import logging
+
+from .graph import load_graph
 
 log = logging.getLogger("mandoline")
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser(description='Decomposes a given small graph H')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -39,7 +38,7 @@ if __name__ == '__main__':
     all_pieces = set()
     secondary_pieces = set()
 
-    for pattern,indexmap in H.enum_patterns():
+    for pattern, _ in H.enum_patterns():
         log.debug("%s %d", pattern, hash(pattern))
         count_patterns += 1
 
@@ -68,3 +67,7 @@ if __name__ == '__main__':
 
     k = count_degenerate_pieces
     log.info("  of which {} ({:.1f}%) or degenerate".format(k,k/count_pieces * 100))
+
+
+if __name__ == '__main__':
+    main()

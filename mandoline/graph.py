@@ -2,18 +2,18 @@
 import itertools
 from collections import defaultdict as defaultdict
 import gzip
-from operator import itemgetter
-from itertools import chain, combinations, permutations, product
+from itertools import chain, permutations, product
 
 from sortedcontainers import SortedSet
-from datastructures import Indexmap
 
-from helpers import singlehash, pairhash, short_str, powerset_nonempty
 
 import bisect
-import math, random
+import random
 import unittest
 import logging
+
+from .datastructures import Indexmap
+from .helpers import singlehash, pairhash, short_str, powerset_nonempty
 
 log = logging.getLogger("mandoline")
 
@@ -287,7 +287,7 @@ class Graph:
             yield pat, imap
 
     def to_pattern(self, order):
-        from pattern import Pattern
+        from .pattern import Pattern
         """
             Returns a `pattern' (and ordered graph with node indices from 0 to n-1)
             and an Indexmap to recover the original ids.
@@ -339,7 +339,7 @@ class Graph:
             remainder -= comp_nodes
         return res
 
-    def subgraph(self, nodes):
+    def subgraph(self, nodes):  # TODO method already defined line 221
         nodes = set(nodes)
         res = Graph()
         for v in nodes:
@@ -768,7 +768,7 @@ class LGraph:
         return count
 
     def brute_force_enumerate(self, _pattern):
-        from pattern import PatternMatch
+        from .pattern import PatternMatch
         """
             Enumerate ordered subgraphs that are isomorphic to the
             given pattern.
@@ -791,7 +791,7 @@ class LGraph:
             such that ordered graph induced by X \\cup \\{iu\\}
             matches the provided piece.
         """
-        from pattern import PatternMatch
+        from .pattern import PatternMatch
 
         if filtered_leaves == None:
             filtered_leaves = set()
@@ -823,7 +823,6 @@ class LGraph:
             all vertices of the given piece. All roots
             must habe been set for this to work.
         """
-        from pattern import PatternMatch
 
         missing_leaves = [i for i in piece.leaves if not partial_match.is_fixed(i)]
 

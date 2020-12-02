@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
-
 import argparse
-import itertools
 import sys
 
 from collections import defaultdict
 from sortedcontainers import SortedSet
 import bisect
-import math, random
 
 import logging
+
+from .graph import load_graph
 
 log = logging.getLogger("mandoline")
 
@@ -93,7 +90,7 @@ def independent_root_sets(LG, root_candidates):
 
 def _independent_root_sets_binary(LG, root_candsA, root_candsB):
     posB = 0
-    nB = len(root_candsB)
+    # nB = len(root_candsB)  # TODO unused, remove?
 
     for vA in root_candsA:
         posB = bisect.bisect_right(root_candsB, vA, lo=posB)
@@ -104,7 +101,7 @@ def _independent_root_sets_binary(LG, root_candsA, root_candsB):
 
 def _independent_root_sets_ternary(LG, root_candsA, root_candsB, root_candsC):
     posB = 0
-    nB = len(root_candsB)
+    # nB = len(root_candsB)  # TODO unused, remove?
     nC = len(root_candsC)
 
     for vA in root_candsA:
@@ -113,7 +110,7 @@ def _independent_root_sets_ternary(LG, root_candsA, root_candsB, root_candsC):
 
         for vB in root_candsB[posB:]:
             if LG.adjacent_ordered(vA, vB):
-               continue
+                continue
 
             posC = bisect.bisect_right(root_candsC, vB, lo=posC)
             if posC >= nC:
@@ -149,7 +146,7 @@ def count_singleton_piece(LG, piece, recorder):
     for iu in LG:
         log.debug("\n%d :", iu)
 
-        uIN = set(LG.in_neighbours(iu))
+        #  uIN = set(LG.in_neighbours(iu))  # TODO unused, remove?
 
         # Match primary piece
         for match in LG.match(iu, piece):
@@ -206,7 +203,7 @@ def assemble_pieces(LG, pieces, recorder):
             sec_boundary = prim_boundary.restrict_to(sec_adh)
             if sec_boundary not in sec_matches:
                 log.debug("  Sec. boundary for piece %d: %s", i, sec_boundary)
-            sec_matches[sec_boundary] # This adds the key to the defaultdict
+            sec_matches[sec_boundary]
 
 
     # Collect secondary matches
@@ -257,7 +254,7 @@ def assemble_pieces(LG, pieces, recorder):
                     log.debug(">>> %s", match)
                     recorder.record(match)
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='Enumerates H in G')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -300,7 +297,7 @@ if __name__ == "__main__":
         log.info("Reduced host graph to {} vertices and {} edges".format(len(G), G.num_edges()))
 
     log.info("Computing {}-wcol sets".format(len(H)-1))
-    LG, mapping = G.to_lgraph()
+    LG, _ = G.to_lgraph()
     LG.compute_wr(len(H)-1)
     log.info("Done.")
 
@@ -312,7 +309,7 @@ if __name__ == "__main__":
     #   be computed once per piece and used in global data structure
 
     count = 0
-    for P,indexmap in H.enum_patterns():
+    for P, _ in H.enum_patterns():
         log.info("Searching pattern {}".format(P))
 
         recorder = MatchCounter()
@@ -325,7 +322,6 @@ if __name__ == "__main__":
 
         pieces = list(P.decompose())
 
-        pattern_count = 0
         if len(pieces) == 1:
             count_singleton_piece(LG, pieces[0], recorder)
         else:
@@ -336,3 +332,7 @@ if __name__ == "__main__":
 
     # Always print the final count, even in --quiet mode.
     print("\nTotal graph count: {}".format(count))
+
+
+if __name__ == "__main__":
+    main()

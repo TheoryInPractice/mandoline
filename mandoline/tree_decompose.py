@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 
-from graph import Graph, DiGraph, load_graph
-from pattern import PatternBuilder, Pattern
-from helpers import short_str, vertex_str, decode_vertices, suborder
-
 import argparse
-import itertools
 import sys
 
-from collections import defaultdict
-from sortedcontainers import SortedSet
-from itertools import permutations, product, chain
-import bisect
-import math, random
+from itertools import permutations
 
 import logging
 
+from .graph import Graph, DiGraph, load_graph
+from .pattern import Pattern
+from .helpers import vertex_str, decode_vertices, suborder
+
 log = logging.getLogger("mandoline")
+
 
 class TD:
     @staticmethod
@@ -262,7 +258,6 @@ class TD:
         return res
 
     def to_piece(self, pattern_size):
-        from pattern import Pattern, Piece
         """
             Turns a _linear_ TD decomposition into a piece;
             this enables us to use the counting infrastructure of
@@ -270,7 +265,7 @@ class TD:
         """
         assert self.is_linear()
         order = list(self.orders())[0]
-        LG, imap = self.to_graph().to_lgraph(order)
+        LG, _ = self.to_graph().to_lgraph(order)
 
         # This TD decomposition might describe a disconnected graph.
         # We do know, however, that the final pattern is connected; hence
@@ -325,7 +320,7 @@ class TD:
 
         return True
 
-    def adhesion_size(self):
+    def adhesion_size(self):  # TODO method already defined line 189
         return len(self._in)
 
     def is_linear(self):
@@ -397,7 +392,7 @@ class TD:
         else:
             return ''.join(map(str, self._bag)) + '{' + ','.join(map(lambda c: c.order_string(), self.children)) + '}'
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')
 
     parser.add_argument('H', help='Pattern graph H')
@@ -464,3 +459,7 @@ if __name__ == "__main__":
 
     print("\n")
     print("Computed {} tree decompositions".format(len(seen)))
+
+
+if __name__ == "__main__":
+    main()

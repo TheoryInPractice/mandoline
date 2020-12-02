@@ -1,12 +1,11 @@
-from graph import Graph, LGraph
+from .graph import Graph
 import math
 import unittest
-import bisect
 
 from sortedcontainers import SortedSet
 
 import logging
-from helpers import short_str
+from .helpers import short_str
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +78,8 @@ class PatternMatch:
         return [(i,self.index_to_vertex[i]) for i in indices if self.index_to_vertex[i] != None ]
 
     def rightmost_unmatched(self):
-        for i,iv in reverse(enumerate(self.index_to_vertex)):
+        # TODO unused, deprecate?
+        for i,iv in reversed(enumerate(self.index_to_vertex)):
             if iv == None:
                 return i
         return None
@@ -387,11 +387,11 @@ class Pattern:
             roots.insert(0, iu)
 
         pieces = []
-        prev_leaves = []
+
         for i,iu in enumerate(roots):
             wreach = self.wreach[iu]
             pieces.append(Piece(self, iu, roots[:i], wreach))
-            prev_leaves = wreach
+
         return pieces
 
     def to_single_piece(self):
@@ -540,8 +540,8 @@ class Piece:
         for u in self.leaves:
             h = ((h ^ u) * fnv_prime ) % modulo
         for u,v in sorted(self.edges()):
-             h = ((h ^ u) * fnv_prime ) % modulo
-             h = ((h ^ v) * fnv_prime ) % modulo
+            h = ((h ^ u) * fnv_prime ) % modulo
+            h = ((h ^ v) * fnv_prime ) % modulo
 
         return h
 

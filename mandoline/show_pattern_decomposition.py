@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-from graph import Graph, load_graph
-from pattern import PatternBuilder, Pattern
-import math, random
-import cairo
+import random
 
+from .pattern import PatternBuilder
 
+# from .graph import load_graph
 # G = load_graph('lesmiserables.txt.gz')
 # G = load_graph('karate.txt.gz')
 
@@ -16,7 +15,12 @@ import cairo
 # 	print(	','.join([str(LG.wr[d][i]) for d in range(LG.depth())]))
 
 
-if __name__ == '__main__':
+def main():
+    try:
+        import cairo
+    except ImportError:
+        import sys
+        sys.exit("This functionality requires cairo.")
     width_in_inches, height_in_inches = 10, 10
     width_in_points, height_in_points = \
         width_in_inches * 72, height_in_inches * 72
@@ -90,3 +94,6 @@ if __name__ == '__main__':
     ctx.show_page()
     surface.finish()
 
+
+if __name__ == '__main__':
+    main()
