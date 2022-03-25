@@ -18,6 +18,48 @@ from .helpers import short_str
 from .tree_decompose import TD
 
 
+def join_dicts(dictA, dictB, f):
+    """
+        Joins to dictionaries. The value of elements sharing the same key
+        is determined by the function f, that is, if `dictA` and `dictB` both
+        contain the key `k` then the resulting dictionary will contain the
+        element `f(dictA[k], dictB[k])` for `k`.
+
+        Values with non-shared keys are simply copied over.
+    """
+    res = {}
+    res.update(dictA)
+    res.update(dictB)
+    for k in (dictA.keys() &  dictB.keys()):
+        res[k] = f(dictA[k], dictB[k])
+    return res
+
+
+class TDIndex:
+    def __init__(self):
+        self.td_to_ix = {} 
+        self.ix_to_td = []
+        self.curr_index = 0
+
+    def append(self, td):
+        assert td not in self.td_to_ix
+        self.td_to_ix[td] = self.curr_index
+        self.ix_to_td.append(td)
+        assert len(self.ix_to_td) == self.curr_index+1
+        self.curr_index += 1
+
+    def __contains__(self, td):
+        return td in self.td_to_ix
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.ix_to_td[key]
+        else:
+            return self.td_to_ix[key]
+
+    def __len__(self):
+        return len(self.ix_to_td)
+
 
 log = logging.getLogger("mandoline")
 
@@ -72,11 +114,13 @@ class Recorder:
         log.info("  We have %d product-count and %d subtract-count edges", self.product_edges_count, self.subtract_edges_count)
 
     def compute_decomp_order(self):
-        # Construct dependency DAG for intermediate decompositions
-        # in order to output decompositions in a topological order.
-        # We know that 'base_decomps' are sources and 'pieces' are sinks,
-        # hence we only need to compute an order for the intermediate
-        # decompositions in 'decomps'.
+        """
+            Construct dependency DAG for intermediate decompositions
+            in order to output decompositions in a topological order.
+            We know that 'base_decomps' are sources and 'pieces' are sinks,
+            hence we only need to compute an order for the intermediate
+            decompositions in 'decomps'.
+        """
         dag = DiGraph()
         for td in self.decomps:
             if td in self.base_decomps:
@@ -103,74 +147,80 @@ class Recorder:
         # Build index for td decompositions. There is a slight complication here
         # since a decomposition might appear both as a 'base' decomposition and
         # as a 'decomp' or a 'piece'. Hence the loop unrolling.
-        index, index_rev = dict(), []
-        curr_index = 0
+        td_index = TDIndex()
         for td in self.base_decomps:
-            assert td not in index
-            index[td] = curr_index
-            index_rev.append(td)
-            assert len(index_rev)-1 == curr_index
-            curr_index += 1
-        index_base = curr_index
-        for td in decomp_order:
-            if td in index:
-                assert td in self.base_decomps
-                continue
-            index[td] = curr_index
-            index_rev.append(td)
-            assert len(index_rev)-1 == curr_index
-            curr_index += 1
-        index_decomp = curr_index
-        for td in self.pieces:
-            if td in index:
-                assert td in self.base_decomps
-                continue
-            index[td] = curr_index
-            index_rev.append(td)
-            assert len(index_rev)-1 == curr_index
-            curr_index += 1
-        index_pieces = curr_index
-        return index, index_rev, (index_base, index_decomp, index_pieces)
+            td_index.append(td)
 
-    def compute_nroot_hints(self, index, index_rev):
-        # This procedure identifies for each nroot a vertex u and a distance r
-        # such that the nroot in question lies in the r-wreach set of u. We
-        # know that such a vertex exists because we only decompose connected
-        # graphs.
+        index_base = td_index.curr_index
+        for td in decomp_order:
+            if td in td_index:
+                assert td in self.base_decomps
+                continue
+            td_index.append(td)
+
+        index_decomp = td_index.curr_index
+        for td in self.pieces:
+            if td in td_index:
+                assert td in self.base_decomps
+                continue
+            td_index.append(td)
+        index_pieces = td_index.curr_index
+
+        return td_index, (index_base, index_decomp, index_pieces)
+
+    def compute_nroot_hints(self, td_index):
+        """
+            An /nroot/ is a node in a linear decomposition where it looks like the 
+            connectvitiy is broken, i.e. if we remove all preceding vertices up to the
+            nroot we find that the remaining graph has several connected components. 
+            However, we _know_ that we are only interested in linear occurences of this
+            pattern where these vertices are connected. This connectivity happens
+            in another linear piece. 
+
+            It is therefore enough to search for the nroot vertex within the wreach
+            set of some subsequent vertex, which we need to idenfify. To do that, we consider
+            all "product parents", that is, all parent decompositions T which are decomposed
+            into linear pieces L_1 + L_2. For example, let's say that vertex u is an
+            nroot in L_1 and u has distance 5 from v (which comes after u in L_1) in
+            T. Then we know that it is sufficient to search for u in W^5(v) and we call
+            v a /hint/ vertex.
+
+            Of course, our goal is to find the best hint vertices, meaning those that
+            minimize the distance to u because this globally minimises the wreach number
+            we have to compute.
+
+            To simplify this algorithm, we want to find a single hint vertex for each nroot
+            (instead of one hint vertex per every "product parent"). Therefore we collect all
+            candidates across all product parents and then choose one that works in every
+            situation.
+        """
 
         product_parents = defaultdict(set)
 
         for parent, (left, right, _) in self.product_edges.items():
-            product_parents[index[left]].add(index[parent])
-            product_parents[index[right]].add(index[parent])
+            iparent = td_index[parent]
+            product_parents[td_index[left]].add(iparent)
+            product_parents[td_index[right]].add(iparent)
 
         nroot_hints = defaultdict(list)
 
-        def element_max(dictA, dictB):
-            res = {}
-            res.update(dictA)
-            res.update(dictB)
-            for k in (dictA.keys() &  dictB.keys()):
-                res[k] = max(dictA[k], dictB[k])
-            return res
 
         def find_distances(i, nroots, depth=0):
             res = dict([(x,{}) for x in nroots])
             for p in product_parents[i]:
-                td_parent = index_rev[p]
+                td_parent = td_index[p]
                 dists = td_parent.to_graph().all_distances()
-                # print(" "*(2*depth+1), p, index_rev[p].td_string())
                 for r in nroots:
                     if r not in dists:
                         rec = find_distances(p, set([r]), depth+1)
-                        res[r] = element_max(res[r], rec[r])
+                        res[r] = join_dicts(res[r], rec[r], max)
                     else:
                         # print(" "*(2*depth+1), r, dists[r])
-                        res[r] = element_max(res[r], dists[r])
+                        res[r] = join_dicts(res[r], dists[r], max)
             return res
 
-        for i in range(len(index_rev)):
-            td = index_rev[i]
+        for i in range(len(td_index)):
+            td = td_index[i]
 
             if not td.is_linear():
                 continue
@@ -183,7 +233,6 @@ class Recorder:
             if len(nroots) == 0:
                 continue
 
-            # dist = graph.all_distances()  # TODO unused, delete?
             order = next(td.orders()) # Piece is linear, so there is only one order
 
             nroots = SortedSet([order[r] for r in nroots]) # Map indices to vertices
@@ -203,10 +252,10 @@ class Recorder:
         log.info("Writing counting dag to %s", filename)
 
         # Compute index for td decompositions
-        index, index_rev, boundaries = self.compute_index()
+        td_index, boundaries = self.compute_index()
         index_base, index_decomp, index_pieces = boundaries
 
-        nroot_hints = self.compute_nroot_hints(index, index_rev)
+        nroot_hints = self.compute_nroot_hints(td_index)
 
         # Determine maximum wreach needed
         max_wreach = 1
@@ -228,42 +277,38 @@ class Recorder:
             f.write('* Base\n')
             for i in range(index_base):
                 assert(i not in nroot_hints)
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                f.write('{} {}\n'.format(i, td_index[i].td_string()))
             f.write('* Composite\n')
             for i in range(index_base, index_decomp):
                 assert(i not in nroot_hints)
-                f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                f.write('{} {}\n'.format(i, td_index[i].td_string()))
             f.write('* Linear\n')
             for i in range(index_decomp, index_pieces):
                 if i in nroot_hints:
                     # nroot_hints[i] contains tuples of the form (nroot_index, hint_index, wreach_dist)
                     nroot_str = ' '.join(map(lambda e: '{}|{}|{}'.format(*e) , nroot_hints[i]))
-                    f.write('{} {} {}\n'.format(i, index_rev[i].td_string(), nroot_str))
+                    f.write('{} {} {}\n'.format(i, td_index[i].td_string(), nroot_str))
                 else:
-                    f.write('{} {}\n'.format(i, index_rev[i].td_string()))
+                    f.write('{} {}\n'.format(i, td_index[i].td_string()))
 
             # Write 'edges' of counting-DAG
             f.write('* Edges\n')
             edges_rows = []
             for td, (td_left, td_right, auto_coeff) in self.product_edges.items():
-                assert td in index
-                assert td_left in index
-                assert td_right in index
+                assert td in td_index
+                assert td_left in td_index
+                assert td_right in td_index
 
-                left, right = index[td_left], index[td_right]
+                left, right = td_index[td_left], td_index[td_right]
                 if left > right:
                     left, right = right, left # For consistency
                     td_left, td_right = td_right, td_left
 
-                subtract = dict([(index[td_sub],m) for td_sub,m in self.subtract_edges[td]])
-                # for i in subtract:
-                #     if i == right or i == left:
-                #         continue
-                #     subtract[i] *= auto_coeff
+                subtract = dict([(td_index[td_sub],m) for td_sub,m in self.subtract_edges[td]])
 
                 subtr_sorted = sorted(subtract.items())
                 subtr_tokens = [str(x)+"|"+str(multi) for x, multi in subtr_sorted]
-                edges_rows.append( (index[td], left, right, auto_coeff, ' '.join(subtr_tokens)) )
+                edges_rows.append( (td_index[td], left, right, auto_coeff, ' '.join(subtr_tokens)) )
 
             for e in sorted(edges_rows):
                 f.write('{} {}x{}|{} {}\n'.format(*e))
@@ -296,7 +341,6 @@ def _simulate_count_rec(R, H, td, depth):
         merged.append(merged[-1].merge(s, split_depth))
 
     assert merged[-1] == td
-
 
     log.debug("%sThe decomposition branches at depth %d", prefix, split_depth)
 
