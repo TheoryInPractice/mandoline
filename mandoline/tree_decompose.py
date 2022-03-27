@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import defaultdict
 import sys
 
-from itertools import permutations
+from itertools import chain, permutations, product
 
 import logging
 
@@ -388,6 +389,154 @@ class TD:
         nodesB -= common_nodes
         nodesAll = nodesA | nodesB | rootPath
         return (nodesA, nodesB, nodesAll)        
+
+    def count_automorphisms(self, nodes):
+        """
+            Counts all rooted automorphisms of the subgraph induced
+            by (root-path + nodes). "rooted" here means that the vertices
+            of the decompositions' stem are mapped to themselves.
+        """
+        return sum([1 for _ in self.compute_automorphisms(nodes)])
+
+    def compute_automorphisms(self, nodes):
+        """
+            Computes all rooted automorphisms of the subgraph induced
+            by (root-path + nodes). "rooted" here means that the vertices
+            of the decompositions' stem are mapped to themselves.
+        """
+        rootPath = tuple(self._sep)
+        rootPathSet = set(rootPath)
+        subgraph = self.to_graph().subgraph(nodes)
+
+        # Partition nodes according to a) their depth and b)
+        # their root-path neighbourhood. These are invariants of rooted 
+        # automorphisms and we can therefore ignore all mappings that do
+        # not preserve them.
+        partition = defaultdict(list)
+        for s in nodes:
+            rpNeighS = self.in_neighbours(s) & rootPathSet
+            N = suborder(rootPath, rpNeighS)
+            d = self.depth_of(s)
+            partition[(d,N)].append(s)
+        partition = list(partition.values())
+
+        # Combine all permutations of each block and check whether the
+        # resulting mapping is an automorphism
+        for perms in product(*[permutations(p) for p in partition]):
+            mapping = dict()
+            for orig, perm in zip(partition, perms):
+                mapping.update(zip(orig, perm))
+            if subgraph.relabel(mapping) == subgraph:
+                yield mapping
+
+
+    def count_relaxed_automorphisms(self, nodesA, nodesB):
+        return self.count_relaxed_embeddings(nodesA, nodesB, self)
+
+    def count_relaxed_embeddings(self, nodesA, nodesB, defect):
+        """
+            Returns how many mappings from 'self' to 'defect' there
+            are such that the two pieces induced by (root-path + nodesA) and (root-path + nodesB)
+            are individually preserved (but if td != defect they will necessarily either
+            intersect or be connected by an unwanted edge). Note that we only need
+            to consider mappings that are surjective, e.g. all nodes of 'defect' must be hit.
+        """
+        rootPath = tuple(self._sep)
+        rootPathSet = set(rootPath)
+        nodesA, nodesB = list(nodesA), list(nodesB) # We need a consistent iteration order
+        defectNodes = set(defect.nodes()) - rootPathSet
+        graph = self.to_graph()
+        graphDefect = defect.to_graph()
+        subgraphA, subgraphB = graph.subgraph(set(nodesA)), graph.subgraph(set(nodesB))
+
+        assert rootPath == tuple(defect._sep[:len(rootPath)]) # Ensure decompositions agree on labelling of root-path
+
+        # Make list of potential mapping candidates; the constraint here
+        # is that source and target vertex must agree on the root-path neighbourhood.
+        candidates = defaultdict(set)
+        for s in chain(nodesA, nodesB):
+            rpNeighS = self.in_neighbours(s) & rootPathSet
+            for t in (defect.nodes() - rootPathSet):
+                rpNeighT = defect.in_neighbours(t) & rootPathSet
+                if rpNeighS == rpNeighT:
+                    candidates[s].add(t)
+        # print("Candidates:", dict(candidates))
+        # print("Need to cover nodes", defectNodes)
+
+        candidateSetsA = [candidates[x] for x in nodesA]
+        candidateSetsB = [candidates[x] for x in nodesB]
+        count = 0
+        for choicesA in product(*candidateSetsA):
+            if len(set(choicesA)) != len(nodesA):
+                continue # Not a bijection
+
+            mappingA = dict(zip(nodesA, choicesA))
+            mappingArev = dict(zip(choicesA, nodesA))
+
+            # Ensure that 'choicesA' induce a subgraph in 'graphDefect' that is
+            # isomorphic the subgraph induced by 'nodesA' in 'graph'. Note that edges
+            # towards the root-path are not tested here, those are taken care of by
+            # our selection of candidates.
+            if subgraphA.relabel(mappingA) != graphDefect.subgraph(choicesA):
+                continue
+
+            # Check whether mapping is order-compatible; meaning that valid orderings
+            # of the target nodes according the 'defect' decomposition must all be
+            # compatible with the original decomposition.
+            # TODO: This could probably done more efficiently by considering the induced
+            #       posets.
+            orderCompatible = True
+            for o in defect.suborders(choicesA):
+                oo = [mappingArev[x] for x in o]
+                if not self.compatible_with(oo):
+                    orderCompatible = False
+                    break
+
+            if not orderCompatible:
+                continue
+
+            for choicesB in product(*candidateSetsB):
+                if len(set(choicesB)) != len(nodesB):
+                    continue # Not a bijection
+
+                mappingB = dict(zip(nodesB, choicesB))
+                mappingBrev = dict(zip(choicesB, nodesB))
+                targets = set(choicesA) | set(choicesB)
+                if targets != defectNodes:
+                    continue
+
+                # Similar to above, but for our mapping of 'choicesB'.
+                if subgraphB.relabel(mappingB) != graphDefect.subgraph(choicesB):
+                    continue
+
+                orderCompatible = True
+                for o in defect.suborders(choicesB):
+                    oo = [mappingBrev[x] for x in o]
+                    if not self.compatible_with(oo):
+                        orderCompatible = False
+                        break
+
+                if not orderCompatible:
+                    continue
+
+                # Whatever remains is a valid mapping!
+                count += 1
+
+        autoA = self.count_automorphisms(nodesA)
+        autoB = self.count_automorphisms(nodesB)
+
+        # Error output for debugging
+        if count % (autoA * autoB) != 0:
+            print(self.td_string())
+            print(self)
+            print(nodesA)
+            print(nodesB)
+            print(defect.td_string())
+        assert count % (autoA * autoB) == 0, "{} not divisible by {} = {} x {}".format(count, autoA*autoB, autoA, autoB)
+        count //= autoA * autoB
+
+        return count
+
 
     def __repr__(self):
         return self.order_string()

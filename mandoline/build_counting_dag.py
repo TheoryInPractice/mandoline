@@ -358,37 +358,44 @@ def _simulate_count_rec(R, H, td, depth):
 
         nodesA, nodesB, _ = tdA.overlap_with(tdB)
 
-        for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):
-            # Note: The resulting merge is labelled with vertices from nodesB,
-            #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting
-            #   node has the label y.
+        for (coeff, defect_graph, defect_td) in enumerate_defects(result, tdA, tdB, depth):
+            _simulate_count_rec(R, defect_graph, defect_td, depth+1)
+            R.count_subtract(result, defect_td, coeff)
 
-            # Instead of finding out which edge-pairs are still allowed, we
-            # enumerate all possible edge-pairs and let compute_coefficient below
-            # figure out whether tdA, tdB can still be found in the resulting graph.
-            nodesA1 = nodesA - mapping.source()
-            nodesB1 = nodesB
-
-            # Enumerate additional cases with additional edges
-            for (H2, tdH2, edges) in enumerate_edge_faults(H1, tdH1, nodesA1, nodesB1, depth):
-                if len(edges) == 0 and len(mapping) == 0:
-                    assert tdH2 == result, "{} != {}".format(tdH2.td_string(), result.td_string())
-                    continue # No merge, no edge addition. This case is included in the iteration for convenience.
-
-                coeff = compute_coefficient(result, nodesA, nodesB, tdH2)
-                if coeff == 0:
-                    continue # Could not find a tdA, tdB mapping
-
-                _simulate_count_rec(R, H2, tdH2, depth+1)
-                R.count_subtract(result, tdH2, coeff)
-
-        # Compute 'automorphism' coefficient: assume we find the graph 'result',
-        # how many pairs of 'tdA', 'tdB' that merge to 'result' are there?
-        coeff = compute_coefficient(result, nodesA, nodesB, result)
+        # Compute automorphism coefficient: assume we find the graph `result`,
+        # how many pairs of embeddings of `tdA`, `tdB` are that that
+        # cover `result`?
+        coeff = result.count_relaxed_automorphisms(nodesA, nodesB)
         R.count_product(tdA, tdB, result, coeff)
 
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
+
+def enumerate_defects(result, tdA, tdB, depth):
+    nodesA, nodesB, _ = tdA.overlap_with(tdB)
+
+    for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):
+        # Note: The resulting merge is labelled with vertices from nodesB,
+        #   e.g. if x \in nodesA is mapped onto y \in nodesB, the resulting
+        #   node has the label y.
+
+        # Instead of finding out which edge-pairs are still allowed, we
+        # enumerate all possible edge-pairs and let compute_coefficient below
+        # figure out whether tdA, tdB can still be found in the resulting graph.
+        nodesA1 = nodesA - mapping.source()
+        nodesB1 = nodesB
+
+        # Enumerate additional cases with additional edges
+        for (H2, tdH2, edges) in enumerate_edge_faults(H1, tdH1, nodesA1, nodesB1, depth):
+            if len(edges) == 0 and len(mapping) == 0:
+                assert tdH2 == result, "{} != {}".format(tdH2.td_string(), result.td_string())
+                continue # No merge, no edge addition. This case is included in the iteration for convenience.
+
+            coeff = result.count_relaxed_embeddings(nodesA, nodesB, tdH2)
+            if coeff == 0:
+                continue # Could not find a valid tdA, tdB mapping
+            
+            yield (coeff, H2, tdH2)
 
 def enumerate_merges(decompA, decompB):
     """
@@ -496,155 +503,13 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
             assert len(o) > 0
             HH = H.copy()
             HH.add_edges(edges)
-            log.debug("%sDecompositing %s along order %s", prefix,list(HH.edges()), o)
+            log.debug("%sDecomposing %s along order %s", prefix,list(HH.edges()), o)
             tdHH = TD.decompose(HH, o, rootPathEdges)
             if tdHH in seen_decomp:
                 continue
             assert tuple(tdHH._sep[:len(rootPath)]) == tuple(rootPath)
             seen_decomp.add(tdHH)
             yield HH, tdHH, edges
-
-def count_automorphisms(td, nodes):
-    """
-        Counts all automorphisms of the subgraph induced
-        by (root-path + nodes) in which the root-path is mapped by
-        the identity.
-    """
-    return sum([1 for _ in compute_automorphisms(td, nodes)])
-
-def compute_automorphisms(td, nodes):
-    """
-        Computes all depth-preserving automorphisms of the subgraph induced
-        by (root-path + nodes). Since the depths of nodes are preserved, the
-        root-path will always be mapped to itself and is _not_ returned
-    """
-    rootPath = tuple(td._sep)
-    rootPathSet = set(rootPath)
-    subgraph = td.to_graph().subgraph(nodes)
-
-    # Partition nodes according to a) their depth and b)
-    # their root-path neighbourhood
-    partition = defaultdict(list)
-    for s in nodes:
-        rpNeighS = td.in_neighbours(s) & rootPathSet
-        N = suborder(rootPath, rpNeighS)
-        d = td.depth_of(s)
-        partition[(d,N)].append(s)
-    partition = list(partition.values())
-
-    # Combine all permutations of each block and check whether the
-    # resulting mapping is an automorphism
-    for perms in product(*[permutations(p) for p in partition]):
-        mapping = dict()
-        for orig, perm in zip(partition, perms):
-            mapping.update(zip(orig, perm))
-        if subgraph.relabel(mapping) == subgraph:
-            yield mapping
-
-
-def compute_coefficient(td, nodesA, nodesB, defect):
-    """
-        Returns how many mappings from 'td' to 'defect' there
-        are such that the two pieces induced by (root-path + nodesA) and (root-path + nodesB)
-        are individually preserved (but if td != defect they will necessarily either
-        intersect or be connected by an unwanted edge). Note that we only need
-        to consider mappings that are surjective, e.g. all nodes of 'defect' must be hit.
-    """
-    rootPath = tuple(td._sep)
-    rootPathSet = set(rootPath)
-    nodesA, nodesB = list(nodesA), list(nodesB) # We need a consistent iteration order
-    defectNodes = set(defect.nodes()) - rootPathSet
-    graph = td.to_graph()
-    graphDefect = defect.to_graph()
-    subgraphA = graph.subgraph(set(nodesA))
-    subgraphB = graph.subgraph(set(nodesB))
-
-    assert rootPath == tuple(defect._sep[:len(rootPath)]) # Ensure decompositions agree on labelling of root-path
-
-    # Make list of potential mapping candidates; the constraint here
-    # is that source and target vertex must agree on the root-path neighbourhood.
-    candidates = defaultdict(set)
-    for s in chain(nodesA, nodesB):
-        rpNeighS = td.in_neighbours(s) & rootPathSet
-        for t in (defect.nodes() - rootPathSet):
-            rpNeighT = defect.in_neighbours(t) & rootPathSet
-            if rpNeighS == rpNeighT:
-                candidates[s].add(t)
-    # print("Candidates:", dict(candidates))
-    # print("Need to cover nodes", defectNodes)
-
-    candidateSetsA = [candidates[x] for x in nodesA]
-    candidateSetsB = [candidates[x] for x in nodesB]
-    count = 0
-    for choicesA in product(*candidateSetsA):
-        if len(set(choicesA)) != len(nodesA):
-            continue # Not a bijection
-
-        mappingA = dict(zip(nodesA, choicesA))
-        mappingArev = dict(zip(choicesA, nodesA))
-
-        # Ensure that 'choicesA' induce a subgraph in 'graphDefect' that is
-        # isomorphic the subgraph induced by 'nodesA' in 'graph'. Note that edges
-        # towards the root-path are not tested here, those are taken care of by
-        # our selection of candidates.
-        if subgraphA.relabel(mappingA) != graphDefect.subgraph(choicesA):
-            continue
-
-        # Check whether mapping is order-compatible; meaning that valid orderings
-        # of the target nodes according the 'defect' decomposition must all be
-        # compatible with the original decomposition.
-        # TODO: This could probably done more efficiently by considering the induced
-        #       posets.
-        orderCompatible = True
-        for o in defect.suborders(choicesA):
-            oo = [mappingArev[x] for x in o]
-            if not td.compatible_with(oo):
-                orderCompatible = False
-                break
-
-        if not orderCompatible:
-            continue
-
-        for choicesB in product(*candidateSetsB):
-            if len(set(choicesB)) != len(nodesB):
-                continue # Not a bijection
-
-            mappingB = dict(zip(nodesB, choicesB))
-            mappingBrev = dict(zip(choicesB, nodesB))
-            targets = set(choicesA) | set(choicesB)
-            if targets != defectNodes:
-                continue
-
-            # Similar to above, but for our mapping of 'choicesB'.
-            if subgraphB.relabel(mappingB) != graphDefect.subgraph(choicesB):
-                continue
-
-            orderCompatible = True
-            for o in defect.suborders(choicesB):
-                oo = [mappingBrev[x] for x in o]
-                if not td.compatible_with(oo):
-                    orderCompatible = False
-                    break
-
-            if not orderCompatible:
-                continue
-
-            # Whatever remains is a valid mapping!
-            count += 1
-
-    autoA = count_automorphisms(td, nodesA)
-    autoB = count_automorphisms(td, nodesB)
-    if count % (autoA * autoB) != 0:
-        print(td.td_string())
-        print(td)
-        print(nodesA)
-        print(nodesB)
-        print(defect.td_string())
-    assert count % (autoA * autoB) == 0, "{} not divisible by {} = {} x {}".format(count, autoA*autoB, autoA, autoB)
-    count //= autoA * autoB
-
-    return count
-
 
 def main():
     parser = argparse.ArgumentParser(description='Counts H in G')
