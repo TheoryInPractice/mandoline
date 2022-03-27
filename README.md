@@ -6,20 +6,14 @@ To install, run
 pip install git+https://github.com/TheoryInPractice/mandoline
 ```
 
-To count the number of tree decompositions of the cricket graph, let's
-say that you have a text file `cricket.txt` that looks like this:
+To count a pattern graph, mandoline needs to first generate a so-called 'counting dag' from the pattern. For example, to generate a pattern graph of the 'cricket' graph, run
 
 ```
-0 1
-1 2
-2 3
-3 1
-1 4
+  mandoline decompose example-graphs/cricket.txt --output cricket.dag
 ```
 
-then you can run
-
+Now we can count the number of times this graph appears in the `codeminar` graph by running 
 
 ```
-mandoline_tw cricket.txt
+  mandoline count cricket.dag example-graphs/codeminer.txt.gz
 ```
