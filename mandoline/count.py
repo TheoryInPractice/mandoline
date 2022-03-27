@@ -305,21 +305,7 @@ class CDAG:
 
         return res
 
-
-def main():
-    from .helpers import CheckExt
-    parser = argparse.ArgumentParser(description='Counts subgraph in G according to counting DAG file')
-
-    parser.add_argument('cdag', help='Counting DAG file', action=CheckExt({'dag'}))
-    parser.add_argument('G', help='Host graph G')
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--quiet', action='store_true' )
-    parser.add_argument('--no-reduction', action='store_true' )
-    parser.add_argument('--natural-order', action='store_true', help='Use order as given by node ids' )
-    parser.add_argument('--output', help='Output file for counting DAG' )
-
-    args = parser.parse_args()
-
+def count(args):
     # Set up logging
     ch = logging.StreamHandler(sys.stdout)
     if args.quiet:
@@ -340,11 +326,11 @@ def main():
     # log.info("Loaded counting dag graph with {} vertices and {} edges".format(len(G), G.num_edges()))
     log.info("Target graph is {}".format(H))
 
-    G = load_graph(args.G)
+    G = load_graph(args.host)
     log.info("Loaded host graph with {} vertices and {} edges".format(len(G), G.num_edges()))
 
     if args.no_reduction:
-        log.info("Skipping recution procedure because flag --no-reduction was set")
+        log.info("Skipping reduction procedure because flag --no-reduction was set")
     else:
         mindeg = min(H.degree_sequence())
         log.info("Computing {}-core of host graph".format(mindeg))
@@ -363,6 +349,3 @@ def main():
     log.info("Done.")
 
     cdag.count(LG)
-
-if __name__ == "__main__":
-    main()

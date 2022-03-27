@@ -511,17 +511,7 @@ def enumerate_edge_faults(H, tdH, nodesA, nodesB, depth):
             seen_decomp.add(tdHH)
             yield HH, tdHH, edges
 
-def main():
-    parser = argparse.ArgumentParser(description='Counts H in G')
-
-    parser.add_argument('H', help='Pattern graph H')
-    # parser.add_argument('G', help='Host graph G')
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--quiet', action='store_true' )
-    parser.add_argument('--output', '-o', help='Output file for counting DAG', action=CheckExt({'dag'}))
-
-    args = parser.parse_args()
-
+def decompose(args):
     # Set up logging
     ch = logging.StreamHandler(sys.stdout)
     if args.quiet:
@@ -537,7 +527,7 @@ def main():
         log.addHandler(ch)
 
     # Load pattern and graph
-    H = load_graph(args.H)
+    H = load_graph(args.pattern)
     log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
     log.info(H)
 
@@ -565,6 +555,5 @@ def main():
 
     if args.output:
         R.output(args.output)
-
-if __name__ == "__main__":
-    main()
+    else:
+        log.info("No output was written. To write the cdag, use the --output argument.")

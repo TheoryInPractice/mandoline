@@ -557,9 +557,7 @@ def main():
     parser = argparse.ArgumentParser(description='Exhaustively decomposes H into tree decompositions')
 
     parser.add_argument('H', help='Pattern graph H')
-    # parser.add_argument('G', help='Host graph G')
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--no-reduction', action='store_true' )
     parser.add_argument('--quiet', action='store_true' )
 
     args = parser.parse_args()
@@ -578,7 +576,7 @@ def main():
         log.setLevel(logging.INFO)
         log.addHandler(ch)
 
-    # Load pattern and graph
+    # Load pattern 
     H = load_graph(args.H)
     log.info("Loaded pattern graph with {} vertices and {} edges".format(len(H), H.num_edges()))
     log.info(H)
@@ -620,7 +618,6 @@ def main():
 
     print("\n")
     print("Computed {} tree decompositions".format(len(seen)))
-
 
 if __name__ == "__main__":
     main()
