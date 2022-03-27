@@ -320,9 +320,6 @@ class TD:
 
         return True
 
-    def adhesion_size(self):  # TODO method already defined line 189
-        return len(self._in)
-
     def is_linear(self):
         assert(len(self.children) != 1)
         return len(self.children) == 0
@@ -376,6 +373,21 @@ class TD:
         assert(len(res.children) != 1)
 
         return res
+
+    def overlap_with(self, other):
+        """
+            Computes three sets of nodes (L,R,U): 
+            L contains nodes exclusive to `self`,
+            R nodes exclusive to `other` and U contains all
+            joint nodes.
+        """
+        rootPath = set(self._sep) & set(other._sep)
+        nodesA, nodesB = self.nodes(), other.nodes()
+        common_nodes = nodesA & nodesB
+        nodesA -= common_nodes
+        nodesB -= common_nodes
+        nodesAll = nodesA | nodesB | rootPath
+        return (nodesA, nodesB, nodesAll)        
 
     def __repr__(self):
         return self.order_string()

@@ -356,7 +356,7 @@ def _simulate_count_rec(R, H, td, depth):
 
         log.debug("%sThe initial count of %s is the count of %s times the count of %s", prefix, result, tdA, tdB)
 
-        nodesA, nodesB, _ = td_overlap(tdA, tdB)
+        nodesA, nodesB, _ = tdA.overlap_with(tdB)
 
         for (H1, tdH1, mapping) in enumerate_merges(tdA, tdB):
             # Note: The resulting merge is labelled with vertices from nodesB,
@@ -390,21 +390,6 @@ def _simulate_count_rec(R, H, td, depth):
         # Make sure the resulting decomposition is noted
         R.count_recursive(result)
 
-def td_overlap(decompA, decompB):
-    """
-        Computes three sets of nodes: nodes exclusive to decompA,
-        nodes exclusive to decompB and all nodes of the joint
-        decomposition (including their joint root-path).
-    """
-    rootPath = set(decompA._sep) & set(decompB._sep)
-    nodesA = decompA.nodes()
-    nodesB = decompB.nodes()
-    common_nodes = nodesA & nodesB
-    nodesA -= common_nodes
-    nodesB -= common_nodes
-    nodesAll = nodesA | nodesB | rootPath
-    return (nodesA, nodesB, nodesAll)
-
 def enumerate_merges(decompA, decompB):
     """
         Enumerates all graphs and td decompositions that
@@ -417,7 +402,7 @@ def enumerate_merges(decompA, decompB):
     assert len(rootPath) > 0 # Paranoia: decompositions must have common root-path.
     assert rootPath == decompB._sep[:len(rootPathSet)]
 
-    nodesA, nodesB, _ = td_overlap(decompA, decompB)
+    nodesA, nodesB, _ = decompA.overlap_with(decompA)
 
     decompJoint = decompA.merge(decompB, len(rootPath))
     dagJoint = decompJoint.to_ditree()
